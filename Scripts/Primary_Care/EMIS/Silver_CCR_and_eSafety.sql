@@ -2,12 +2,12 @@
 -- Contact: jake.kealey@nhs.net
 
 CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__PRIMARY_CARE.SAFETY_NETTING_AND_CCR(
-    "Indicator_Name",
-    "Practice_Name",
-    "Practice_Code",
-    "Numerator",
-    "Denominator",
-    "Date_Full"
+    "INDICATOR_NAME",
+    "PRACTICE_NAME",
+    "PRACTICE_CODE",
+    "NUMERATOR",
+    "DENOMINATOR",
+    "DATE_FULL"
 )
 TARGET_LAG = '2 hours'
 REFRESH_MODE = FULL
@@ -17,13 +17,13 @@ COMMENT = 'Dynamic table to combine CCR and eSafety source data'
 AS
 
 SELECT 
-    "Indicator_Name",
-    "Organisation" AS "Practice_Name",
-    "CDB" AS "Practice_Code",
-    "Population Count" AS "Numerator",
-    "Parent" AS "Denominator",
+    "Indicator_Name" AS "INDICATOR_NAME",
+    "Organisation" AS "PRACTICE_NAME",
+    "CDB" AS "PRACTICE_CODE",
+    "Population Count" AS "NUMERATOR",
+    "Parent" AS "DENOMINATOR",
     --Convert Date string into Date object
-     DATE_FROM_PARTS("_Year", "_Month", 1) AS "Date_Full"
+     DATE_FROM_PARTS("_Year", "_Month", 1) AS "DATE_FULL"
 
 --For each data source, add a "Indicator_Name" and combine the datasets
 FROM (
