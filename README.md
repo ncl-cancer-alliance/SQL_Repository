@@ -3,6 +3,8 @@
 This repository is a central location for SQL scripts to enable source control and change tracking for .sql files.
 
 ## Usage
+Refer to this [Guide](https://code.visualstudio.com/docs/sourcecontrol/overview#_cloning-a-repository) for instructions on making this repository available locally in VS Code.
+
 SQL Scripts should be saved in subdirectories within the Scripts folder. This repository blocks all files not saved in a subdirectory within the Scripts folder from appearing on the remote repository.
 
 Tables maintained by dedicated pipelines in other repositories do not need to be stored here to prevent multiple versions of scripts and allow for python maintained tables. Instead add a text file (.txt) with a link to the relevant repository and a brief explanation of what tables are maintained by that pipeline.
