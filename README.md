@@ -31,6 +31,7 @@ Save the "DEV" version of scripts to the repository. You can save a seperate fil
 * Commit changes made on the new branch ([Guide](https://code.visualstudio.com/docs/sourcecontrol/overview#_commit))  
 *Make sure you use "Publish Branch" after making your commits so others can see your new branch (CTRL+Shift+P -> "Git:Publish Branch...")*
 * Perform a peer-review on your new scripts by sharing details of the code to review and the branch containing the changes to a colleague ([Details on Peer Reviews](https://github.com/ncl-icb-analytics/snowflake-public/wiki/Peer-Review-Process))
+* After a successful peer-review, merge your new branch back into the main branch ([Guide - Merging Branches](https://nhs.sharepoint.com/:w:/r/sites/msteams_38dd8f/_layouts/15/Doc.aspx?sourcedoc=%7BC124F806-FCD8-401B-8D8E-051CE9DAAB87%7D&file=Internal%20Scripting%20Guide.docx&action=default&mobileredirect=true))
 
 ## Licence
 This repository is dual licensed under the [Open Government v3]([https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/) & MIT. All code can outputs are subject to Crown Copyright.
