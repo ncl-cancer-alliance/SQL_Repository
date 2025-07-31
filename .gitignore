@@ -1,0 +1,10 @@
+*
+!.gitignore
+!Scripts/
+!Scripts/**/
+!Scripts/**/**.sql
+!Scripts/**/**.txt
+Scripts/*.sql
+!*.md
+!LICENSE.txt
+!MIT-LICENSE
