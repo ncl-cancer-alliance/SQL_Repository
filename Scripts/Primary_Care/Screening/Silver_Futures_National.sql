@@ -2,17 +2,17 @@
 -- Processes London and England (via aggregation) seperately and combines both into a single table.
 -- Contact: jake.kealey@nhs.net
 CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__SCREENING.SCREENING_NATIONAL (
-    "Region_Name" VARCHAR,
-    "Programme" VARCHAR,
-    "Date_Full" DATE,
-    "Cohort_Age_Range" VARCHAR,
-    "Cohort_Description" VARCHAR,
-    "Denominator_Name" VARCHAR,
-    "Denominator" NUMBER,
-    "Numerator" NUMBER,
-    "Performance" FLOAT,
-    "Acceptable" FLOAT,
-    "Achievable" FLOAT
+    "REGION_NAME" VARCHAR,
+    "PROGRAMME" VARCHAR,
+    "DATE_FULL" DATE,
+    "COHORT_AGE_RANGE" VARCHAR,
+    "COHORT_DESCRIPTION" VARCHAR,
+    "DENOMINATOR_NAME" VARCHAR,
+    "DENOMINATOR" NUMBER,
+    "NUMERATOR" NUMBER,
+    "PERFORMANCE" FLOAT,
+    "ACCEPTABLE" FLOAT,
+    "ACHIEVABLE" FLOAT
 )
 COMMENT="Dynamic table to clean source cancer screening data from NHS Futures."
 TARGET_LAG = "2 hours"
@@ -22,21 +22,21 @@ WAREHOUSE = NCL_ANALYTICS_XS
 AS
 
 SELECT
-    "Organisation Name" AS "Region_Name",
-    "Programme",
+    "Organisation Name" AS "REGION_NAME",
+    "Programme" AS "PROGRAMME",
     --Convert Date string into Date object
     TO_DATE(
         '01 ' || LEFT("Month of Date", 3) || ' ' || RIGHT("Month of Date", 4), 
         'DD MON YYYY'
-    ) AS "Date_Full",
-    "Cohort Age Range" AS "Cohort_Age_Range",
-    "Cohort Description" AS "Cohort_Description",
-    "Denominator Name" AS "Denominator_Name",
-    "Denominator",
-    "Numerator",
-    "Performance",
-    TO_NUMBER(REPLACE("Acceptable", '%', '')) / 100 AS "Acceptable",
-    TO_NUMBER(REPLACE("Achievable", '%', '')) / 100 AS "Achievable"
+    ) AS "DATE_FULL",
+    "Cohort Age Range" AS "COHORT_AGE_RANGE",
+    "Cohort Description" AS "COHORT_DESCRIPTION",
+    "Denominator Name" AS "DENOMINATOR_NAME",
+    "Denominator" AS "DENOMINATOR",
+    "Numerator" AS "NUMERATOR",
+    "Performance" AS "PERFORMANCE",
+    TO_NUMBER(REPLACE("Acceptable", '%', '')) / 100 AS "ACCEPTABLE",
+    TO_NUMBER(REPLACE("Achievable", '%', '')) / 100 AS "ACHIEVABLE"
     
 --Process the England and London data seperately
 FROM (
