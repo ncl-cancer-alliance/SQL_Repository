@@ -3,6 +3,8 @@
 This repository is a central location for SQL scripts to enable source control and change tracking for .sql files.
 
 ## Usage
+Refer to this [Guide](https://code.visualstudio.com/docs/sourcecontrol/overview#_cloning-a-repository) for instructions on making this repository available locally in VS Code.
+
 SQL Scripts should be saved in subdirectories within the Scripts folder. This repository blocks all files not saved in a subdirectory within the Scripts folder from appearing on the remote repository.
 
 Tables maintained by dedicated pipelines in other repositories do not need to be stored here to prevent multiple versions of scripts and allow for python maintained tables. Instead add a text file (.txt) with a link to the relevant repository and a brief explanation of what tables are maintained by that pipeline.
@@ -31,6 +33,7 @@ Save the "DEV" version of scripts to the repository. You can save a seperate fil
 * Commit changes made on the new branch ([Guide](https://code.visualstudio.com/docs/sourcecontrol/overview#_commit))  
 *Make sure you use "Publish Branch" after making your commits so others can see your new branch (CTRL+Shift+P -> "Git:Publish Branch...")*
 * Perform a peer-review on your new scripts by sharing details of the code to review and the branch containing the changes to a colleague ([Details on Peer Reviews](https://github.com/ncl-icb-analytics/snowflake-public/wiki/Peer-Review-Process))
+* After a successful peer-review, merge your new branch back into the main branch ([Guide - Merging Branches](https://nhs.sharepoint.com/:w:/r/sites/msteams_38dd8f/_layouts/15/Doc.aspx?sourcedoc=%7BC124F806-FCD8-401B-8D8E-051CE9DAAB87%7D&file=Internal%20Scripting%20Guide.docx&action=default&mobileredirect=true))
 
 ## Licence
 This repository is dual licensed under the [Open Government v3]([https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/) & MIT. All code can outputs are subject to Crown Copyright.
