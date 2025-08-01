@@ -1,7 +1,7 @@
 -- This pulls raw data on eSafety Netting and Cancer Care Review metrics and combines them into a single table
 -- Contact: jake.kealey@nhs.net
 
-CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__PRIMARY_CARE.SAFETY_NETTING_AND_CCR(
+CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__EMIS.SAFETY_NETTING_AND_CCR(
     "INDICATOR_NAME",
     "PRACTICE_NAME",
     "PRACTICE_CODE",
