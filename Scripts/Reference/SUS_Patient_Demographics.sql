@@ -1,10 +1,10 @@
 /*
 Script: PATIENTENCOUNTERDATA
-Version: 1.1
+Version: 1.2
 Description: Unions patient demographics from SUS OP/IP/A&E databases for all patients. Selects valid characteristics from the latest recorded encounter across the 3 datasets.
 Required for secondary care reporting, particularly CWT, where a large proportion of patients receiving cancer care are not NCL residents or registered with NCL GP's.
 Author: Graham Roberts
-Run time: TBC (previously 6-7 mins in Sandpit)
+Run time: ~1 min
 
 Tables Involved:
 SUS
@@ -31,193 +31,11 @@ Geography and Socioeconomic Lookup:
 - MODELLING.LOOKUP_NCL.IMD_2019
 
 Target Output Table:
-DEV__MODELLING.CANCER__REF.PATIENTENCOUNTERDATA (a dynamic table, replacing GrahamR.PatientEncounterData)
+DEV__MODELLING.CANCER__REF.PATIENTENCOUNTERDATA
 */
 
--- Select requisite database and schema
-    
-    USE DATABASE DEV_MODELLING;
-    USE SCHEMA CANCER__REF;
-
-   --Create and populate the main SUS table which unions OP, IP, and A&E patient and SUS encounter tables
-	--OP data
-    CREATE OR REPLACE TABLE RankedAggSUSData AS
-    WITH CTE_AggSUSData AS (
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ep."SK_EthnicityID",
-            ep."SK_GenderID",
-            ep."SK_PracticeID",
-            ep."SK_Org_PracticeID",
-            ep."WardCode",
-            ep."LSOACode",
-            ed."EncounterStartDateTime",
-            'OP' AS SUS_Data_Source
-        FROM DATA_LAKE.SUS_OP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_OP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-
-        UNION ALL
-		--A&E data
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ep."SK_EthnicityID",
-            ep."SK_GenderID",
-            ep."SK_PracticeID",
-            ep."SK_Org_PracticeID",
-            ep."WardCode",
-            ep."LSOACode",
-            ed."EncounterStartDateTime",
-            'AE' AS SUS_Data_Source
-        FROM DATA_LAKE.SUS_AE."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_AE."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-
-        UNION ALL
-		--IP data
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ep."SK_EthnicityID",
-            ep."SK_GenderID",
-            ep."SK_PracticeID",
-            ep."SK_Org_PracticeID",
-            ep."WardCode",
-            ep."LSOACode",
-            ed."EncounterStartDateTime",
-            'IP' AS SUS_Data_Source
-        FROM DATA_LAKE.SUS_IP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_IP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-    )
-	--Order by latest SUS encounter start date/time descending to find latest demographic details for each patient.
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY "SK_PatientID" ORDER BY "EncounterStartDateTime" DESC) AS RankedRecord
-    FROM CTE_AggSUSData;
-
-    --Subquery's required for DOB, Ethnicity, and LSOA to handle instances where the latest record for patients is blank but prior records contain data.
-	--Subquery to populate latest valid DOB captured
-	CREATE OR REPLACE TABLE RankedAggDOBData AS
-    WITH CTE_AggDOBData AS (
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_OP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_OP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."Date_of_Birth" IS NOT NULL
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_AE."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_AE."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."Date_of_Birth" IS NOT NULL
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."Date_of_Birth",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_IP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_IP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."Date_of_Birth" IS NOT NULL
-    )
-
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY "SK_PatientID" ORDER BY "EncounterStartDateTime" DESC) AS RankedRecord
-    FROM CTE_AggDOBData;
-
-    --Subquery to populate latest valid Ethnicity captured
-    CREATE OR REPLACE TABLE RankedAggEthData AS
-    WITH CTE_AggEthData AS (
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."SK_EthnicityID",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_OP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_OP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."SK_EthnicityID" NOT IN (1, 58, 59, 60, 61, 62, 63, 99, 100, 101, 102, 103, 191, 192, 193)
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."SK_EthnicityID",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_AE."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_AE."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."SK_EthnicityID" NOT IN (1, 58, 59, 60, 61, 62, 63, 99, 100, 101, 102, 103, 191, 192, 193)
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."SK_EthnicityID",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_IP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_IP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."SK_EthnicityID" NOT IN (1, 58, 59, 60, 61, 62, 63, 99, 100, 101, 102, 103, 191, 192, 193)
-    )
-
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY "SK_PatientID" ORDER BY "EncounterStartDateTime" DESC) AS RankedRecord
-    FROM CTE_AggEthData;
-
-    --Subquery to populate latest valid LSOA captured
-    CREATE OR REPLACE TABLE RankedAggLSOAData AS
-    WITH CTE_AggLSOAData AS (
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."LSOACode",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_OP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_OP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."LSOACode" IS NOT NULL
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."LSOACode",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_AE."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_AE."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."LSOACode" IS NOT NULL
-
-        UNION ALL
-
-        SELECT 
-            ed."SK_PatientID",
-            ep."SK_EncounterID",
-            ep."LSOACode",
-            ed."EncounterStartDateTime"
-        FROM DATA_LAKE.SUS_IP."EncounterPatient" ep
-        JOIN DATA_LAKE.SUS_IP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
-        WHERE ep."LSOACode" IS NOT NULL
-    )
-
-    SELECT *,
-        ROW_NUMBER() OVER (PARTITION BY "SK_PatientID" ORDER BY "EncounterStartDateTime" DESC) AS RankedRecord
-    FROM CTE_AggLSOAData;
-
-    --Create and populate the final patient encounter data table with the latest demographic details
-      CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.SUS_PATIENT_DEMOGRAPHICS(
-    RUN_DATE_TIME DATETIME,
+--Create and populate the final patient encounter data table with the latest demographic details
+CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.SUS_PATIENT_DEMOGRAPHICS_NEW(
     PSEUDO_ID INT,
     SUS_ENCOUNTER_ID BIGINT,
     SUS_ENCOUNTER_DATE_TIME DATETIME,
@@ -245,78 +63,181 @@ DEV__MODELLING.CANCER__REF.PATIENTENCOUNTERDATA (a dynamic table, replacing Grah
     LSOA_CODE VARCHAR(50),
     LSOA_NAME VARCHAR(50),
     IMD_DECILE_LSOA VARCHAR(50),
-    IMD_QUINTILE_LSOA VARCHAR(50)
-    )
-    target_lag = '1 DAY'
-    refresh_mode = FULL
-    WAREHOUSE = NCL_ANALYTICS_XS
-    AS
+    IMD_QUINTILE_LSOA VARCHAR(50),
+    RUN_DATE_TIME TIMESTAMP_NTZ(9)
+)
+target_lag = '1 DAY'
+refresh_mode = FULL
+WAREHOUSE = NCL_ANALYTICS_XS
+AS
+
+--CTE for combined SUS data with row_numbers for first non-null data for dob, ethnicity, gender
+WITH CTE_COMBINED_SUS AS (
+
+    --Combine OP, A&E, IP data and filter ethnic code
     SELECT
-		GETDATE(),
-        s."SK_PatientID",
-        s."SK_EncounterID",
-        s."EncounterStartDateTime",
-        s."SUS_DATA_SOURCE",
-		g."GenderCode",
-        g."Gender",
-		g."GenderCode2",
-		eth."SK_EthnicityID",
-        e."EthnicityHESCode",
-        e."EthnicityCombinedCode",
-        e2."EthnicityCategory",
-        e2."EthnicityDesc",
-        e."EthnicityDesc",
-        dob."Date_of_Birth",
-		CASE 
-			WHEN (dob."Date_of_Birth" IS NOT NULL AND d."REG_DATE_OF_DEATH" IS NULL) THEN 
-            DATEDIFF(YEAR, dob."Date_of_Birth", GETDATE())
+        *,
+        --Partition over different fields to get the most recent valid data
+        ROW_NUMBER() OVER (
+            PARTITION BY "SK_PatientID"
+            ORDER BY "EncounterStartDateTime" DESC, "SK_EncounterID" DESC
+        ) AS row_number_base,
+        
+        ROW_NUMBER() OVER (
+            PARTITION BY "SK_PatientID" 
+            ORDER BY
+                CASE WHEN "Date_of_Birth" IS NOT NULL THEN 0 ELSE 1 END,
+                "EncounterStartDateTime" DESC, "SK_EncounterID" DESC
+        ) AS row_number_dob,
+        
+        ROW_NUMBER() OVER (
+            PARTITION BY "SK_PatientID" 
+            ORDER BY
+                CASE
+                    WHEN "SK_EthnicityID" IS NULL THEN 2
+                    WHEN "SK_EthnicityID" NOT IN (1, 58, 59, 60, 61, 62, 63, 99, 100, 101, 102, 103, 191, 192, 193) THEN 0 
+                    ELSE 1 END,
+                "EncounterStartDateTime" DESC, "SK_EncounterID" DESC
+        ) AS row_number_ethnic,
+    
+        ROW_NUMBER() OVER (
+            PARTITION BY "SK_PatientID" 
+            ORDER BY
+                CASE WHEN "LSOACode" IS NOT NULL THEN 0 ELSE 1 END,
+                "EncounterStartDateTime" DESC, "SK_EncounterID" DESC
+        ) AS row_number_lsoa
+    
+    FROM (
+    
+    SELECT 
+    ed."SK_PatientID", ep."SK_EncounterID",
+    ep."Date_of_Birth",
+    ep."SK_EthnicityID",
+    ep."SK_GenderID",
+    ep."SK_PracticeID", ep."SK_Org_PracticeID",
+    ep."LSOACode",
+    ed."EncounterStartDateTime",
+    'OP' AS SUS_DATA_SOURCE
+    
+    FROM DATA_LAKE.SUS_OP."EncounterPatient" ep
+    JOIN DATA_LAKE.SUS_OP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
+    
+    UNION ALL
+    
+    SELECT 
+    ed."SK_PatientID", ep."SK_EncounterID",
+    ep."Date_of_Birth",
+    ep."SK_EthnicityID",
+    ep."SK_GenderID",
+    ep."SK_PracticeID", ep."SK_Org_PracticeID",
+    ep."LSOACode",
+    ed."EncounterStartDateTime",
+    'A&E' AS SUS_DATA_SOURCE
+    
+    FROM DATA_LAKE.SUS_AE."EncounterPatient" ep
+    JOIN DATA_LAKE.SUS_AE."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
+    
+    UNION ALL
+    
+    SELECT 
+    ed."SK_PatientID", ep."SK_EncounterID",
+    ep."Date_of_Birth",
+    ep."SK_EthnicityID",
+    ep."SK_GenderID",
+    ep."SK_PracticeID", ep."SK_Org_PracticeID",
+    ep."LSOACode",
+    ed."EncounterStartDateTime",
+    'IP' AS SUS_DATA_SOURCE
+    
+    FROM DATA_LAKE.SUS_IP."EncounterPatient" ep
+    JOIN DATA_LAKE.SUS_IP."EncounterDetail" ed ON ep."SK_EncounterID" = ed."SK_EncounterID"
+    
+    )
+),
+--CTE to get 1 record per patient with only the latest field values
+CTE_LATEST_RECORDS AS (
+    SELECT
+        "SK_PatientID", 
+        MAX(CASE WHEN row_number_base = 1 THEN "SK_EncounterID" END) AS "SK_EncounterID",
+        MAX(CASE WHEN row_number_dob = 1 THEN "Date_of_Birth" END) AS "Date_of_Birth",
+        MAX(CASE WHEN row_number_ethnic = 1 THEN "SK_EthnicityID" END) AS "SK_EthnicityID",
+        MAX(CASE WHEN row_number_base = 1 THEN "SK_GenderID" END) AS "SK_GenderID",
+        MAX(CASE WHEN row_number_base = 1 THEN "SK_PracticeID" END) AS "SK_PracticeID",
+        MAX(CASE WHEN row_number_base = 1 THEN "SK_Org_PracticeID" END) AS "SK_Org_PracticeID",
+        MAX(CASE WHEN row_number_lsoa = 1 THEN "LSOACode" END) AS "LSOACode",
+        MAX(CASE WHEN row_number_base = 1 THEN SUS_DATA_SOURCE END) AS SUS_DATA_SOURCE,
+        MAX("EncounterStartDateTime") AS "EncounterStartDateTime"
+    FROM CTE_COMBINED_SUS
+    GROUP BY "SK_PatientID"
+)
+
+SELECT
+    sus."SK_PatientID",
+    sus."SK_EncounterID",
+    sus."EncounterStartDateTime",
+    sus."SUS_DATA_SOURCE",
+    code_gender."GenderCode",
+    code_gender."Gender",
+    code_gender."GenderCode2",
+    sus."SK_EthnicityID",
+    code_ethnic_1."EthnicityHESCode",
+    code_ethnic_1."EthnicityCombinedCode",
+    code_ethnic_2."EthnicityCategory",
+    code_ethnic_2."EthnicityDesc",
+    code_ethnic_1."EthnicityDesc",
+    sus."Date_of_Birth",
+    CASE 
+        WHEN (sus."Date_of_Birth" IS NOT NULL AND code_death.REG_DATE_OF_DEATH IS NULL) THEN 
+        DATEDIFF(YEAR, sus."Date_of_Birth", GETDATE())
         ELSE NULL
     END AS Current_Age,
-	-- Prefer death registry for date of death
-	    d."REG_DATE_OF_DEATH" AS Date_of_Death,
-        a."Organisation_Code",
-        a."Organisation_Name",
-		po."Postcode_8_chars",
-        c."Organisation_Code",
-        c."Organisation_Name",
-        i."Organisation_Code",
-        i."Organisation_Name",
-        t."Borough",
-		lsoa."LSOACode",
-		imd.LSOA_NAME_2011,
-        imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE,
-        CASE 
-            WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('1','2') THEN '1 - Most Deprived'
-            WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('3','4') THEN '2'
-            WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('5','6') THEN '3'
-            WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('7','8') THEN '4'
-            WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('9','10') THEN '5 - Least Deprived'
-            ELSE 'Unknown' 
-        END
-    FROM RankedAggSUSData s
-	--Subquery's in joins to select only latest populated data for Ethnicity, DOB, and LSOA
-	LEFT JOIN (select * from RankedAggEthData where rankedrecord = 1) eth ON s."SK_PatientID" = eth."SK_PatientID"
-	LEFT JOIN (select * from RankedAggDOBData where rankedrecord = 1) dob ON s."SK_PatientID" = dob."SK_PatientID"
-	LEFT JOIN (select * from RankedAggLSOAData where rankedrecord = 1) lsoa ON s."SK_PatientID" = lsoa."SK_PatientID"
-	LEFT JOIN "Dictionary"."dbo"."Organisation" a ON s."SK_Org_PracticeID" = a."SK_OrganisationID"
-	LEFT JOIN "Dictionary"."dbo"."Postcode" po on a."SK_PostcodeID" = po."SK_PostcodeID"
-	--Select only GP records from Org table for performance
-	LEFT JOIN (SELECT * FROM "Dictionary"."dbo"."OrganisationHierarchyPractice" WHERE "Level" = 4) b ON a."SK_OrganisationID" = b."SK_OrganisationID" 
-	--Join GP onto parent PCN
-	LEFT JOIN "Dictionary"."dbo"."Organisation" c ON b."SK_OrganisationID_Parent" = c."SK_OrganisationID" 
-	LEFT JOIN "Dictionary"."dbo"."Organisation" i ON a."SK_OrganisationID_HealthAuthority" = i."SK_OrganisationID"
-	--Local Steve Reiners lookup table for NCL PCN to Borough
-	LEFT JOIN MODELLING.LOOKUP_NCL.SR_PCN_BOROUGH_LOOKUP t ON c."Organisation_Code" = t."pcn_code"
-	--Local lookup table for deprivation decile based on LSOA
-	LEFT JOIN MODELLING.LOOKUP_NCL.IMD_2019 imd ON lsoa."LSOACode" = imd."LSOA_CODE_2011"
-	LEFT JOIN "Dictionary"."dbo"."Gender" g ON s."SK_GenderID" = g."SK_GenderID"
-	LEFT JOIN "Dictionary"."dbo"."Ethnicity" e ON eth."SK_EthnicityID" = e."SK_EthnicityID"
-	LEFT JOIN "Dictionary"."dbo"."Ethnicity2" e2 ON eth."SK_EthnicityID" = e2."SK_EthnicityID"
-	LEFT JOIN DATA_LAKE.DEATHS."Deaths" d ON s."SK_PatientID" = d."Pseudo NHS Number"
-	WHERE s."RANKEDRECORD" = 1;
+    -- Prefer death registry for date of death
+    code_death.REG_DATE_OF_DEATH AS Date_of_Death,
+    dict_org_gp."Organisation_Code",
+    dict_org_gp."Organisation_Name",
+    dict_post."Postcode_8_chars",
+    dict_org_pcn."Organisation_Code",
+    dict_org_pcn."Organisation_Name",
+    dict_org_healthauth."Organisation_Code",
+    dict_org_healthauth."Organisation_Name",
+    dict_org_borough."Borough",
+    sus."LSOACode",
+    
+    --IMD Deprivation Fields
+    imd.LSOA_NAME_2011,
+    imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE,
+    CASE 
+        WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('1','2') THEN '1 - Most Deprived'
+        WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('3','4') THEN '2'
+        WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('5','6') THEN '3'
+        WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('7','8') THEN '4'
+        WHEN imd."INDEX_OF_MULTIPLE_DEPRIVATION_DECILE" IN ('9','10') THEN '5 - Least Deprived'
+        ELSE 'Unknown' 
+    END,
+    GETDATE() AS RUN_DATE_TIME
+    
+FROM CTE_LATEST_RECORDS sus
 
-	-- Clean up intermediary tables
-    DROP TABLE IF EXISTS RankedAggSUSData;
-	DROP TABLE IF EXISTS RankedAggDOBData;
-	DROP TABLE IF EXISTS RankedAggEthData;
-	DROP TABLE IF EXISTS RankedAggLSOAData;
+--Organisation fields
+LEFT JOIN "Dictionary"."dbo"."Organisation" dict_org_gp ON sus."SK_Org_PracticeID" = dict_org_gp."SK_OrganisationID"
+LEFT JOIN "Dictionary"."dbo"."Postcode" dict_post on dict_org_gp."SK_PostcodeID" = dict_post."SK_PostcodeID"
+
+--Select only GP records from Org table for performance
+LEFT JOIN (SELECT * FROM "Dictionary"."dbo"."OrganisationHierarchyPractice" WHERE "Level" = 4) dict_hierarchy 
+ON dict_org_gp."SK_OrganisationID" = dict_hierarchy."SK_OrganisationID"
+
+--Join GP onto parent PCN
+LEFT JOIN "Dictionary"."dbo"."Organisation" dict_org_pcn ON dict_hierarchy."SK_OrganisationID_Parent" = dict_org_pcn."SK_OrganisationID" 
+LEFT JOIN "Dictionary"."dbo"."Organisation" dict_org_healthauth ON dict_org_gp."SK_OrganisationID_HealthAuthority" = dict_org_healthauth."SK_OrganisationID"
+
+--Local Steve Reiners lookup table for NCL PCN to Borough
+LEFT JOIN MODELLING.LOOKUP_NCL.SR_PCN_BOROUGH_LOOKUP dict_org_borough ON dict_org_pcn."Organisation_Code" = dict_org_borough."pcn_code"
+
+--Local lookup table for deprivation decile based on LSOA
+LEFT JOIN MODELLING.LOOKUP_NCL.IMD_2019 imd ON sus."LSOACode" = imd."LSOA_CODE_2011"
+
+--Code lookups
+LEFT JOIN "Dictionary"."dbo"."Gender" code_gender ON sus."SK_GenderID" = code_gender."SK_GenderID"
+LEFT JOIN "Dictionary"."dbo"."Ethnicity" code_ethnic_1 ON sus."SK_EthnicityID" = code_ethnic_1."SK_EthnicityID"
+LEFT JOIN "Dictionary"."dbo"."Ethnicity2" code_ethnic_2 ON sus."SK_EthnicityID" = code_ethnic_2."SK_EthnicityID"
+LEFT JOIN DATA_LAKE.DEATHS."Deaths" code_death ON sus."SK_PatientID" = code_death."Pseudo NHS Number"
