@@ -1,7 +1,7 @@
 -- Dynamic table to provide Screening Benchmarking. This table combines aggregated Borough and NCL level data with National level data.
 -- Contact: eric.pinto@nhs.net
 
-create or replace dynamic table DEV__REPORTING.PUBLIC.CANCER__SCREENING__BENCHMARKING(
+CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.PUBLIC.CANCER__SCREENING__BENCHMARKING(
     "REGION_NAME",
     "PROGRAMME",
     "DATE_FULL",
