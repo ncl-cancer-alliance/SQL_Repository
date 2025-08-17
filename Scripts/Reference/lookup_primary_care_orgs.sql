@@ -51,37 +51,37 @@ Step 2: Create the Dynamic Table for primary care organisations
 - Refreshes daily (target_lag = 1 DAY)
 */
 CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS (
-    DB_ORGANISATION_CODE INT,
-    ORGANISATION_TYPE VARCHAR(255),
-    ORGANISATION_CODE VARCHAR(255),
+    SK_ORGANISATION_CODE INT,
+    ORGANISATION_TYPE VARCHAR(100),
+    ORGANISATION_CODE VARCHAR(6),
     ORGANISATION_NAME VARCHAR(255),
     ADDRESS_LINE_1 VARCHAR(255),
     ADDRESS_LINE_2 VARCHAR(255),
     ADDRESS_LINE_3 VARCHAR(255),
     ADDRESS_LINE_4 VARCHAR(255),
     ADDRESS_LINE_5 VARCHAR(255),
-    POSTCODE VARCHAR(255),
-    DB_POSTCODE INT,
-    LSOA_CODE_2011 VARCHAR(255),
-    LSOA_NAME_2011 VARCHAR(255),
-    MSOA_CODE_2011 VARCHAR(255),
-    MSOA_NAME_2011 VARCHAR(255),
+    SK_POSTCODE INT,
+    POSTCODE VARCHAR(10),
+    LSOA_CODE VARCHAR(9),
+    LSOA_NAME VARCHAR(100),
+    MSOA_CODE VARCHAR(9),
+    MSOA_NAME VARCHAR(100),
     DATE_ORGANISATION_OPEN DATE,
     DATE_ORGANISATION_CLOSE DATE,
     ORGANISATION_STATUS VARCHAR(255),
     ORGANISATION_IMD_DECILE INT,
     ORGANISATION_IMD_QUINTILE INT,
-    DB_PCN_CODE INT,
-    PCN_CODE VARCHAR(255),
+    SK_PCN_CODE INT,
+    PCN_CODE VARCHAR(6),
     PCN_NAME VARCHAR(255),
-    PCN_POSTCODE VARCHAR(255),
-    NEIGHBOURHOOD_NAME VARCHAR(255),
-    BOROUGH_NCL VARCHAR(255),
-    DB_REGION_CODE INT,
-    REGION_CODE VARCHAR(255),
+    PCN_POSTCODE VARCHAR(10),
+    NEIGHBOURHOOD VARCHAR(100),
+    BOROUGH_NCL VARCHAR(10),
+    SK_REGION_CODE INT,
+    REGION_CODE VARCHAR(9),
     REGION_NAME VARCHAR(255),
-    DB_ICB_CODE INT,
-    ICB_CODE VARCHAR(255),
+    SK_ICB_CODE INT,
+    ICB_CODE VARCHAR(9),
     ICB_NAME VARCHAR(255),
     DATETIME_RUN DATETIME
 )
@@ -90,58 +90,55 @@ refresh_mode = FULL
 warehouse = NCL_ANALYTICS_XS
 AS
 SELECT
-    -- Internal database identifier (useful for troubleshooting joins)
-    a."SK_OrganisationID" AS DB_ORGANISATION_CODE,
+    -- Organisation details including address
+    -- Internal database identifiers (useful for troubleshooting joins), prefix SK
+    a."SK_OrganisationID",
+    t."OrganisationType",        -- e.g. Dental Practices, GPs, Pharmacies
+    a."Organisation_Code",
+    a."Organisation_Name",
+    a."Address_Line_1",
+    a."Address_Line_2",
+    a."Address_Line_3",
+    a."Address_Line_4",
+    a."Address_Line_5",
+    p."SK_PostcodeID",
+    p."Postcode_single_space_e_Gif",
 
-    -- Organisation details
-    t."OrganisationType" AS ORGANISATION_TYPE,        -- e.g. Dental Practices, GPs, Pharmacies
-    a."Organisation_Code" AS ORGANISATION_CODE,
-    a."Organisation_Name" AS ORGANISATION_NAME,
-
-    -- Address fields
-    a."Address_Line_1" AS ADDRESS_LINE_1,
-    a."Address_Line_2" AS ADDRESS_LINE_2,
-    a."Address_Line_3" AS ADDRESS_LINE_3,
-    a."Address_Line_4" AS ADDRESS_LINE_4,
-    a."Address_Line_5" AS ADDRESS_LINE_5,
-
-    -- Postcode and geographical lookup
-    p."Postcode_single_space_e_Gif" AS POSTCODE,
-    p."SK_PostcodeID" AS DB_POSTCODE,
-    p."LSOA" AS LSOA_CODE_2011,
-    l."OAName" AS LSOA_NAME_2011,
-    p."MSOA" AS MSOA_CODE_2011,
-    m."OAName" AS MSOA_NAME_2011,
+    -- LSOA and MSOA lookup
+    p."LSOA",
+    l."OAName",
+    p."MSOA",
+    m."OAName",
 
     -- Organisation status
-    a."StartDate" AS DATE_ORGANISATION_OPEN,
-    a."EndDate" AS DATE_ORGANISATION_CLOSE,
-    s."OrganisationStatus" AS ORGANISATION_STATUS,    -- Active, Closed, etc
+    a."StartDate",
+    a."EndDate",
+    s."OrganisationStatus",    -- Active, Closed, etc
 
     -- Deprivation (NCL GP Practice specific: 2019 IMD)
-    d."Deprivation_Decile_2019_Fingertips" AS ORGANISATION_IMD_DECILE,
-    d."Deprivation_Quintile_2019_Fingertips" AS ORGANISATION_IMD_QUINTILE,
+    d."Deprivation_Decile_2019_Fingertips",
+    d."Deprivation_Quintile_2019_Fingertips",
 
     -- PCN
-    c."SK_OrganisationID" AS DB_PCN_CODE,
-    c."Organisation_Code" AS PCN_CODE,
-    c."Organisation_Name" AS PCN_NAME,
-    p2."Postcode_single_space_e_Gif" AS PCN_POSTCODE,
+    c."SK_OrganisationID",
+    c."Organisation_Code",
+    c."Organisation_Name",
+    p2."Postcode_single_space_e_Gif",
 
     -- Neighbourhood & Borough
-    n."Neighbourhood" AS NEIGHBOURHOOD_NAME,
-    b."Borough" AS BOROUGH_NCL,
+    n."Neighbourhood",
+    b."Borough",
 
     -- Region & ICB
-    r."SK_OrganisationID" AS DB_REGION_CODE,
-    r."Organisation_Code" AS REGION_CODE,
-    r."Organisation_Name" AS REGION_NAME,
-    i."SK_OrganisationID" AS DB_ICB_CODE,
-    i."Organisation_Code" AS ICB_CODE,
-    i."Organisation_Name" AS ICB_NAME,
+    r."SK_OrganisationID",
+    r."Organisation_Code",
+    r."Organisation_Name",
+    i."SK_OrganisationID",
+    i."Organisation_Code",
+    i."Organisation_Name",
 
     -- Audit timestamp
-    GETDATE() AS DATETIME_RUN
+    GETDATE()
 
 FROM "Dictionary"."dbo"."Organisation" a
 LEFT JOIN "Dictionary"."dbo"."OrganisationMatrixPractice" x 

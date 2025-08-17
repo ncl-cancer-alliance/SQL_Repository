@@ -110,7 +110,7 @@ RankedPatientsRes AS (
 )
 SELECT DISTINCT 
     fpro."SK_PatientID",
-    CASE WHEN fpra."PeriodEnd" = '9999-12-31' THEN 'Y' ELSE 'N' END AS Current_Resident,
+    CASE WHEN fpra."PeriodEnd" = '9999-12-31' THEN 'Y' ELSE 'N' END AS "IsCurrent",
     g."GenderCode",
     g."Gender",
     g."GenderCode2",
@@ -126,14 +126,14 @@ SELECT DISTINCT
          AND COALESCE(fpro."DateOfDeath", d."REG_DATE_OF_DEATH") IS NULL
         THEN DATEDIFF(YEAR, fpro."DateOfBirth", CURRENT_DATE)
         ELSE NULL
-    END AS Years_Since_Birth,
+    END AS "YearsSinceBirth",
     -- Prefer Death Registry date over EMIS
-    COALESCE(d."REG_DATE_OF_DEATH", fpro."DateOfDeath") AS Date_of_Death,
+    COALESCE(d."REG_DATE_OF_DEATH", fpro."DateOfDeath") AS "DateOfDeath",
     CASE 
         WHEN d."REG_DATE_OF_DEATH" IS NOT NULL THEN 'Death Register'
         WHEN fpro."DateOfDeath" IS NOT NULL THEN 'EMIS'
         ELSE NULL
-    END AS Date_of_Death_Source,
+    END AS "DateOfDeathSource",
     gp.ORGANISATION_CODE,
     gp.ORGANISATION_NAME,
     gp.POSTCODE,
@@ -144,19 +144,19 @@ SELECT DISTINCT
     gp.ICB_CODE,
     gp.ICB_NAME,
     gp.BOROUGH_NCL,
-    oa."OACode" AS RESIDENCE_LSOA_CODE,
-    OA."OAName" AS RESIDENCE_LSOA_NAME,
+    oa."OACode",
+    OA."OAName",
     n."Neighbourhood",
-    imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE AS RESIDENCE_IMD_DECILE,
+    imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE,
     CASE 
         WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('1','2') THEN '1 - Most Deprived'
         WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('3','4') THEN '2'
         WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('5','6') THEN '3'
         WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('7','8') THEN '4'
         WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('9','10') THEN '5 - Least Deprived'
-        ELSE 'Unknown'
-    END AS RESIDENCE_IMD_QUINTILE,
-     GETDATE() AS DATETIME_RUN
+        ELSE NULL
+    END AS "IMD_Quintile",
+     GETDATE() AS "LoadDate"
 FROM RankedPatientsPro fpro
 LEFT JOIN (SELECT * FROM RankedPatientsPra WHERE rn = 1) fpra 
        ON fpro."SK_PatientID" = fpra."SK_PatientID"
@@ -165,7 +165,7 @@ LEFT JOIN (SELECT * FROM RankedPatientsRes WHERE rn = 1) fres
 LEFT JOIN DEV__MODELLING.CANCER__REF.GP_ETH gp_eth 
        ON fpro."SK_PatientID" = gp_eth."SK_PatientID"
 LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS gp
-       ON fpra."SK_OrganisationID" = gp.DB_ORGANISATION_CODE
+       ON fpra."SK_OrganisationID" = gp.SK_ORGANISATION_CODE
 LEFT JOIN "Dictionary"."dbo"."OutputArea" oa 
        ON fres."SK_OutputAreaID" = oa."SK_OutputAreaID"
 LEFT JOIN MODELLING.LOOKUP_NCL.IMD_2019 imd 
@@ -205,31 +205,31 @@ CREATE OR REPLACE TEMPORARY TABLE DEV__MODELLING.CANCER__REF.QOFLTC AS
     GROUP BY flc."SK_PatientID", ltc."LifetimeConditionType";
 
 /* =================================
-   Step 4: Pivot LTC into residents
+   Step 4: Pivot LTC into residents records
    ================================= */
 CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__REF.NCL_RESIDENTS_LTC AS
     SELECT 
         pop.*,
-        COUNT_IF("ConditionType" = 'QoF Asthma')                AS "QoF Asthma",
-        COUNT_IF("ConditionType" = 'QoF Atrial Fibrillation')   AS "QoF Atrial Fibrillation",
-        COUNT_IF("ConditionType" = 'QoF Cancer')                AS "QoF Cancer",
-        COUNT_IF("ConditionType" = 'QoF CKD (Stage 1-2)')       AS "QoF CKD (Stage 1-2)",
-        COUNT_IF("ConditionType" = 'QoF CKD (Stage 3-5)')       AS "QoF CKD (Stage 3-5)",
-        COUNT_IF("ConditionType" = 'QoF CHD')                   AS "QoF CHD",
-        COUNT_IF("ConditionType" = 'QoF COPD')                  AS "QoF COPD",
-        COUNT_IF("ConditionType" = 'QoF Dementia')              AS "QoF Dementia",
-        COUNT_IF("ConditionType" = 'QoF Depression')            AS "QoF Depression",
-        COUNT_IF("ConditionType" = 'QoF Diabetes')              AS "QoF Diabetes",
-        COUNT_IF("ConditionType" = 'QoF Epilepsy')              AS "QoF Epilepsy",
-        COUNT_IF("ConditionType" = 'QoF Heart Failure')         AS "QoF Heart Failure",
-        COUNT_IF("ConditionType" = 'QoF Hypertension')          AS "QoF Hypertension",
-        COUNT_IF("ConditionType" = 'QoF Learning Disabilities') AS "QoF Learning Disabilities",
-        COUNT_IF("ConditionType" = 'QoF Mental Health')         AS "QoF Mental Health",
-        COUNT_IF("ConditionType" = 'QoF Obesity')               AS "QoF Obesity",
-        COUNT_IF("ConditionType" = 'QoF Osteoporosis')          AS "QoF Osteoporosis",
-        COUNT_IF("ConditionType" = 'QoF PAD')                   AS "QoF PAD",
-        COUNT_IF("ConditionType" = 'QoF Rheumatoid Arthritis')  AS "QoF Rheumatoid Arthritis",
-        COUNT_IF("ConditionType" = 'QoF Stroke')                AS "QoF Stroke"
+        COUNT_IF("ConditionType" = 'QoF Asthma') AS QOF_ASTHMA,
+        COUNT_IF("ConditionType" = 'QoF Atrial Fibrillation') AS QOF_ATRIAL_FIBRILLATION,
+        COUNT_IF("ConditionType" = 'QoF Cancer') AS QOF_CANCER,
+        COUNT_IF("ConditionType" = 'QoF CKD (Stage 1-2)') AS QOF_CKD_STAGE_1_2,
+        COUNT_IF("ConditionType" = 'QoF CKD (Stage 3-5)') AS QOF_CKD_STAGE_3_5,
+        COUNT_IF("ConditionType" = 'QoF CHD') AS QOF_CHD,
+        COUNT_IF("ConditionType" = 'QoF COPD') AS QOF_COPD,
+        COUNT_IF("ConditionType" = 'QoF Dementia') AS QOF_DEMENTIA,
+        COUNT_IF("ConditionType" = 'QoF Depression') AS QOF_DEPRESSION,
+        COUNT_IF("ConditionType" = 'QoF Diabetes') AS QOF_DIABETES,
+        COUNT_IF("ConditionType" = 'QoF Epilepsy') AS QOF_EPILEPSY,
+        COUNT_IF("ConditionType" = 'QoF Heart Failure') AS QOF_HEART_FAILURE,
+        COUNT_IF("ConditionType" = 'QoF Hypertension') AS QOF_HYPERTENSION,
+        COUNT_IF("ConditionType" = 'QoF Learning Disabilities') AS QOF_LEARNING_DISABILITIES,
+        COUNT_IF("ConditionType" = 'QoF Mental Health') AS QOF_MENTAL_HEALTH,
+        COUNT_IF("ConditionType" = 'QoF Obesity') AS QOF_OBESITY,
+        COUNT_IF("ConditionType" = 'QoF Osteoporosis') AS QOF_OSTEOPOROSIS,
+        COUNT_IF("ConditionType" = 'QoF PAD') AS QOF_PAD,
+        COUNT_IF("ConditionType" = 'QoF Rheumatoid Arthritis') AS QOF_RHEUMATOID_ARTHRITIS,
+        COUNT_IF("ConditionType" = 'QoF Stroke') AS QOF_STROKE
     FROM DEV__MODELLING.CANCER__REF.NCL_RESIDENTS pop
     LEFT JOIN DEV__MODELLING.CANCER__REF.QOFLTC ltc 
            ON pop."SK_PatientID" = ltc."SK_PatientID"
@@ -241,34 +241,34 @@ CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__REF.NCL_RESIDENTS_LTC AS
 CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA (
     SK_PATIENT_ID INT,
     CURRENT_RESIDENT_FLAG VARCHAR(1),
-    GENDER_CODE VARCHAR(50),
-    GENDER_NAME VARCHAR(50),
-    GENDER_LETTER VARCHAR(50),
+    GENDER_CODE INT,
+    GENDER_NAME VARCHAR(10),
+    GENDER_LETTER VARCHAR(1),
     ETHNICITY_SK_CODE VARCHAR(5),
-    ETHNICITY_HES_CODE VARCHAR(50),
-    ETHNICITY_HES_DETAILED_CODE VARCHAR(50),
-    ETHNICITY_CATEGORY VARCHAR(50),
+    ETHNICITY_HES_CODE VARCHAR(1),
+    ETHNICITY_HES_DETAILED_CODE VARCHAR(2),
+    ETHNICITY_CATEGORY VARCHAR(10),
     ETHNICITY_DESC VARCHAR(255),
     ETHNICITY_CATEGORY_AND_DESC VARCHAR(255),
     YEAR_OF_BIRTH DATE,
     YEARS_SINCE_BIRTH INT,
     DATE_OF_DEATH DATE,
     DATE_OF_DEATH_SOURCE VARCHAR(50),
-    REG_GP_PRACTICE_CODE VARCHAR(50),
-    REG_GP_PRACTICE_NAME VARCHAR(255),
-    REG_GP_PRACTICE_POSTCODE VARCHAR(50),
+    REG_GP_PRACTICE_CODE VARCHAR(6),
+    REG_GP_PRACTICE_NAME VARCHAR(100),
+    REG_GP_PRACTICE_POSTCODE VARCHAR(10),
     REG_GP_PRACTICE_IMD_DECILE INT,
     REG_GP_PRACTICE_IMD_QUINTILE INT,
-    REG_PCN_CODE VARCHAR(50),
+    REG_PCN_CODE VARCHAR(6),
     REG_PCN_NAME VARCHAR(255),
-    REG_ICB_CODE VARCHAR(50),
+    REG_ICB_CODE VARCHAR(9),
     REG_ICB_NAME VARCHAR(255),
-    REG_BOROUGH_NCL VARCHAR(255),
-    RESIDENCE_LSOA_CODE VARCHAR(50),
-    RESIDENCE_LSOA_NAME VARCHAR(255),
-    RESIDENCE_NEIGHBOURHOOD_NAME VARCHAR(50),
-    RESIDENCE_LSOA_IMD_DECILE VARCHAR(50),
-    RESIDENCE_LSOA_IMD_QUINTILE VARCHAR(50),
+    REG_BOROUGH_NCL VARCHAR(10),
+    RESIDENCE_LSOA_CODE VARCHAR(9),
+    RESIDENCE_LSOA_NAME VARCHAR(100),
+    RESIDENCE_NEIGHBOURHOOD VARCHAR(100),
+    RESIDENCE_LSOA_IMD_DECILE VARCHAR(1),
+    RESIDENCE_LSOA_IMD_QUINTILE VARCHAR(1),
     DATETIME_RUN DATETIME,
     QOF_ASTHMA INT, 
     QOF_ATRIAL_FIBRILLATION INT,
