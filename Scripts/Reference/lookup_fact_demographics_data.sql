@@ -207,7 +207,7 @@ CREATE OR REPLACE TEMPORARY TABLE DEV__MODELLING.CANCER__REF.QOFLTC AS
 /* =================================
    Step 4: Pivot LTC into residents records
    ================================= */
-CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__REF.NCL_RESIDENTS_LTC AS
+CREATE OR REPLACE TEMPORARY TABLE DEV__MODELLING.CANCER__REF.NCL_RESIDENTS_LTC AS
     SELECT 
         pop.*,
         COUNT_IF("ConditionType" = 'QoF Asthma') AS QOF_ASTHMA,
