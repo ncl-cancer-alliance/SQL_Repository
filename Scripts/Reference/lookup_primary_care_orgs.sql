@@ -75,14 +75,15 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_O
     PCN_CODE VARCHAR(6),
     PCN_NAME VARCHAR(255),
     PCN_POSTCODE VARCHAR(10),
-    NEIGHBOURHOOD VARCHAR(100),
+    NEIGHBOURHOOD_NCL VARCHAR(100),
     BOROUGH_NCL VARCHAR(10),
     SK_REGION_CODE INT,
     REGION_CODE VARCHAR(9),
     REGION_NAME VARCHAR(255),
-    SK_ICB_CODE INT,
-    ICB_CODE VARCHAR(9),
-    ICB_NAME VARCHAR(255),
+    SK_PARENT_ORG_CODE INT,
+    PARENT_ORG_CODE VARCHAR(9),
+    PARENT_ORG_NAME VARCHAR(255),
+    PARENT_ORG_TYPE VARCHAR(50),
     DATETIME_RUN DATETIME
 )
 target_lag = '1 DAY'
@@ -93,7 +94,7 @@ SELECT
     -- Organisation details including address
     -- Internal database identifiers (useful for troubleshooting joins), prefix SK
     a."SK_OrganisationID",
-    t."OrganisationType",        -- e.g. Dental Practices, GPs, Pharmacies
+    t1."OrganisationType",        -- e.g. Dental Practices, GPs, Pharmacies
     a."Organisation_Code",
     a."Organisation_Name",
     a."Address_Line_1",
@@ -136,6 +137,7 @@ SELECT
     i."SK_OrganisationID",
     i."Organisation_Code",
     i."Organisation_Name",
+    t2."OrganisationType",
 
     -- Audit timestamp
     GETDATE()
@@ -168,8 +170,10 @@ LEFT JOIN (
     ON c."Organisation_Code" = b."pcn_code"
 LEFT JOIN MODELLING.LOOKUP_NCL.DIM_PRACTICE_DEPRIVATION d 
     ON a."Organisation_Code" = d."Practice_Code"
-LEFT JOIN "Dictionary"."dbo"."OrganisationType" t 
-    ON a."SK_OrganisationTypeID" = t."SK_OrganisationTypeID"
+LEFT JOIN "Dictionary"."dbo"."OrganisationType" t1 
+    ON a."SK_OrganisationTypeID" = t1."SK_OrganisationTypeID"
+LEFT JOIN "Dictionary"."dbo"."OrganisationType" t2 
+    ON i."SK_OrganisationTypeID" = t2."SK_OrganisationTypeID"
 
 -- Only include primary care providers: Dental Practices, GPs, Pharmacies
 WHERE a."SK_OrganisationTypeID" IN (43, 44, 8);
