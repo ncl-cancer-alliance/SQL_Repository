@@ -1,0 +1,249 @@
+/*
+Script: DEV__MODELLING.CANCER__RCRD.RCRD
+Version: 1.1
+
+Description:
+Dynamic table to normalise the latest snapshot of RCRD data and brings in additional demographic and geographic data.
+
+Notes:
+- Runtime around 3 secs
+- Includes records apportioned by DSCRO as NCL, so trust and alliance data should mirror what's in CancerStats2
+
+Author: Graham Roberts
+
+Tables Used:
+
+Dictionary Tables (shared):
+ - Dictionary.dbo.Ethnicity
+
+Activity Tables:
+ - DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION
+ - DATA_LAKE.DEATHS.Deaths
+
+Modelling Tables:
+ - DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA
+ - DEV__MODELLING.CANCER__REF.SUS_PATIENT_DEMOGRAPHICS_NEW
+ - DEV__MODELLING.CANCER__REF.lookup_primary_care_orgs
+ - MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011
+ - MODELLING.CANCER__REF.DIM_CWT_REFERENCE
+ - MODELLING.CANCER__REF.DIM_ORGANISATIONS
+
+Target Output Tables:
+ - DEV__MODELLING.CANCER__RCRD.RCRD
+
+*/
+-- Create or replace the RCRD table with the latest Snapshot in the DEV__MODELLING.CANCER__RCRD schema
+CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__RCRD.RCRD (
+    SK_PATIENT_ID INT,
+    DATE_OF_DIAGNOSIS DATE,
+    MONTH_OF_DIAGNOSIS VARCHAR(7),
+    QUARTER_OF_DIAGNOSIS VARCHAR(2),
+    YEAR_OF_DIAGNOSIS VARCHAR(4),
+    FINANCIAL_YEAR_OF_DIAGNOSIS VARCHAR(7),
+    ICD10_CODE VARCHAR(3),
+    TUMOUR_GROUP_RCRD VARCHAR(50),
+    STAGE_DETAIL VARCHAR(10),
+    STAGE INT,
+    STAGE_EARLY_LATE VARCHAR(10),
+    STAGEABLE_CANCER_RCRD VARCHAR(25),
+    GENDER_CODE INT,
+    GENDER_NAME VARCHAR(10),
+    GENDER_LETTER VARCHAR(1),
+    YEAR_OF_BIRTH DATE,
+    YEARS_SINCE_BIRTH INT,
+    DATE_OF_DEATH DATE,
+    DATE_OF_DEATH_SOURCE VARCHAR(50),
+    AGE_AT_DIAGNOSIS INT,
+    AGE_AT_DIAGNOSIS_GROUP_RCRD VARCHAR(10),
+    ETHNICITY_HES_CODE VARCHAR(1),
+	ETHNICITY_CATEGORY VARCHAR(10),
+    ETHNICITY_CATEGORY_AND_DESC VARCHAR(255),
+    RESIDENCE_LSOA_IMD_QUINTILE VARCHAR(1),
+    ROUTE_TO_DIAGNOSIS VARCHAR(50),
+    MORPHOLOGY_ICD03 INT,
+    PERFORMANCE_STATUS_AT_DIAGNOSIS_CODE INT,
+    PERFORMANCE_STATUS_AT_DIAGNOSIS_DESC VARCHAR(255),
+    BASIS_OF_DIAGNOSIS_CODE VARCHAR(3),
+    BASIS_OF_DIAGNOSIS_DESC VARCHAR(255),
+    TRUST_CODE VARCHAR(3),
+    TRUST_NAME VARCHAR(255),
+    CANCER_ALLIANCE_CODE VARCHAR(9),
+    CANCER_ALLIANCE_NAME VARCHAR(255),
+    REGION_CODE VARCHAR(9),
+    REGION_NAME VARCHAR(255),
+    ICB_CODE VARCHAR(9),
+    ICB_NAME VARCHAR(255),
+    DIAGNOSIS_SOURCE VARCHAR(10),
+    GP_PRACTICE_CODE VARCHAR(6),
+    GP_PRACTICE_NAME VARCHAR(100),
+    GP_PRACTICE_IMD_QUINTILE INT,
+    PCN_CODE VARCHAR(6),
+    PCN_NAME VARCHAR(255),
+	BOROUGH_NCL VARCHAR(10),
+    RESIDENCE_LSOA_CODE VARCHAR(9),
+    RESIDENCE_LSOA_NAME VARCHAR(100),
+    RESIDENCE_NEIGHBOURHOOD VARCHAR(100),
+    DMICBOFREGISTRATION VARCHAR(3),
+    DMSUBICBOFREGISTRATION VARCHAR(5),
+    DMICBCOMMISSIONER VARCHAR(3),
+    DMSUBICBCOMMISSIONER VARCHAR(5),
+    SNAPSHOT VARCHAR(7),
+    DMICIMPORTLOGID INT,
+    DMICDATEADDED DATETIME,
+    DATETIME_RUN DATETIME
+)
+target_lag = '1 DAY'
+refresh_mode = FULL
+warehouse = NCL_ANALYTICS_XS
+AS
+SELECT
+    a."NHS_NUMBER Pseudo",
+    CAST(a.DIAGNOSISDATE AS DATE),  --Stored as DateTime in data lake table, cast for ease of use
+    TO_CHAR(a.DIAGNOSISDATE, 'yyyy-MM'),
+    CASE 
+        WHEN MONTH(a.DIAGNOSISDATE) BETWEEN 4 AND 6 THEN 'Q1'
+        WHEN MONTH(a.DIAGNOSISDATE) BETWEEN 7 AND 9 THEN 'Q2'
+        WHEN MONTH(a.DIAGNOSISDATE) BETWEEN 10 AND 12 THEN 'Q3'
+        ELSE 'Q4'
+    END,
+	TO_CHAR(a.DIAGNOSISDATE, 'yyyy'),
+	-- Calc Financial Year logic
+    CASE 
+        WHEN MONTH(a.DIAGNOSISDATE) >= 4 
+            THEN CONCAT(YEAR(a.DIAGNOSISDATE), '/', RIGHT(YEAR(a.DIAGNOSISDATE) + 1, 2))
+        ELSE CONCAT(YEAR(a.DIAGNOSISDATE) - 1, '/', RIGHT(YEAR(a.DIAGNOSISDATE), 2))
+    END,
+	a.TUMOUR_SITE,
+    a.CANCER_GROUP,
+    a.STAGE,
+	-- Simplified staging logic
+    CASE 
+        WHEN a.STAGE LIKE '1%' THEN 1
+        WHEN a.STAGE LIKE '2%' THEN 2
+        WHEN a.STAGE LIKE '3%' THEN 3
+        WHEN a.STAGE LIKE '4%' THEN 4
+        ELSE NULL
+    END,
+	-- Grouped staging (Early/Late) logic
+	CASE 
+        WHEN a.STAGE LIKE '1%' OR a.STAGE LIKE '2%' THEN 'Early'
+        WHEN a.STAGE LIKE '3%' OR a.STAGE LIKE '4%' THEN 'Late'
+        ELSE NULL
+    END,
+	c.RCRD_STAGEABLE,
+    a.GENDER,
+    CASE WHEN a.GENDER = 1 THEN 'Male'
+	     WHEN a.GENDER = 2 THEN 'Female'
+	     ELSE 'Unknown'
+	END,
+    CASE WHEN a.GENDER = 1 THEN 'M'
+	     WHEN a.GENDER = 2 THEN 'F'
+	     ELSE 'U'
+	END,
+	-- Best-available year of birth from FACT/SUS lookups
+    COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')),
+	-- Years since birth if alive and DOB available
+    CASE 
+        WHEN (COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')) IS NOT NULL AND COALESCE(d.REG_DATE_OF_DEATH, r.date_of_death) IS NULL) THEN 
+            DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), GETDATE())
+        ELSE NULL
+    END,
+	-- Prefer death registry for date of death to whats in the RCRD data lake table
+	CAST(COALESCE(d.REG_DATE_OF_DEATH, r.date_of_death) AS DATE),
+	CASE 
+        WHEN d.REG_DATE_OF_DEATH IS NOT NULL THEN 'Death Register'
+	    WHEN r.date_of_death IS NOT NULL THEN 'EMIS'
+	    ELSE NULL
+	END,
+	-- Age at diagnosis (fallback logic where age is blank in RCRD dataset)
+    CASE 
+        WHEN a.AGE IS NOT NULL THEN a.AGE
+        ELSE DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE)
+    END,
+    -- CancerStats2-style age bands
+    CASE 
+        WHEN a.AGE IS NULL THEN 
+            CASE 
+                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) < 50 THEN '0-49'
+                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 50 AND 59 THEN '50-59'
+                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 60 AND 69 THEN '60-69'
+                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 70 AND 79 THEN '70-79'
+                ELSE '80+'
+            END
+        ELSE 
+            CASE 
+                WHEN a.AGE < 50 THEN '0-49'
+                WHEN a.AGE BETWEEN 50 AND 59 THEN '50-59'
+                WHEN a.AGE BETWEEN 60 AND 69 THEN '60-69'
+                WHEN a.AGE BETWEEN 70 AND 79 THEN '70-79'
+                ELSE '80+'
+            END
+    END,
+    a.ETHNICCATEGORY,
+	-- Format ethnic category to proper case
+    CASE WHEN CHARINDEX(':', e."EthnicityDesc") > 0 
+        THEN UPPER(LEFT(e."EthnicityDesc", 1)) || LOWER(SUBSTRING(e."EthnicityDesc", 2, CHARINDEX(':', e."EthnicityDesc") - 2))
+        ELSE UPPER(LEFT(e."EthnicityDesc", 1)) || LOWER(SUBSTRING(e."EthnicityDesc", 2, LENGTH(e."EthnicityDesc") - 1))
+    END,
+    e."EthnicityDesc",
+    a.IMD_QUINTILE,
+    a.FINAL_ROUTE,
+    a.TUMOUR_MORPHOLOGY,
+    a.TUMOUR_PERFORMANCESTATUS,
+    perf.FULL_DESCRIPTION,
+    a.BASISOFDIAGNOSIS,
+    basis.FULL_DESCRIPTION,
+	a.TRUST_CODE,
+    o.Short_Name,
+    a.CANALLIANCE_CODE,
+    a.CANALLIANCE_NAME,
+    a.NHS_REGION_CODE,
+    a.NHS_REGION_NAME,
+    a.ICB_CODE,
+    a.ICB_NAME,
+    a.SOURCE,
+	-- Registered GP (note: may not align with alliance responsible at time of diagnosis for some records)
+    a."dmPracticeCode",
+    g.ORGANISATION_NAME,
+    g.ORGANISATION_IMD_QUINTILE,
+    g.PCN_CODE,
+    g.PCN_NAME,
+	g.BOROUGH_NCL,
+    -- LSOA and Neighbourhood based on patient postcode of residence, not GP practice.
+    r.RESIDENCE_LSOA_CODE,
+    r.RESIDENCE_LSOA_NAME,
+    n."Neighbourhood",
+	a."dmIcbOfRegistration",
+    a."dmSubIcbOfRegistration",
+    a."dmIcbCommissioner",
+    a."dmSubIcbCommissioner",
+    a."Snapshot",
+    a."dmicImportLogId",
+    a."dmicDateAdded",
+    GETDATE()
+
+FROM DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION a
+
+LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA r ON a."NHS_NUMBER Pseudo" = r.SK_PATIENT_ID
+LEFT JOIN DEV__MODELLING.CANCER__REF.SUS_PATIENT_DEMOGRAPHICS_NEW s ON a."NHS_NUMBER Pseudo" = s.SK_PATIENT_ID
+LEFT JOIN DEV__MODELLING.CANCER__REF.lookup_primary_care_orgs g ON a."dmPracticeCode" = g.ORGANISATION_CODE
+LEFT JOIN MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011 n ON r.residence_lsoa_code = n."LSOA11CD"
+LEFT JOIN (
+	SELECT LEFT(CODE, 3) AS CODE,
+	RCRD_STAGEABLE,
+	ROW_NUMBER() OVER (PARTITION BY LEFT(CODE, 3) ORDER BY LEFT(CODE, 3) DESC) AS rn
+    FROM MODELLING.CANCER__REF.DIM_CWT_REFERENCE
+    WHERE REFERENCE_CODE = 1 ) c ON a.TUMOUR_SITE = c.CODE
+LEFT JOIN "Dictionary"."dbo"."Ethnicity" e ON a.ETHNICCATEGORY = e."BK_EthnicityCode"
+LEFT JOIN (
+	SELECT * FROM MODELLING.CANCER__REF.DIM_CWT_REFERENCE
+    WHERE REFERENCE_CODE = 25) basis ON a.BASISOFDIAGNOSIS = basis.code
+LEFT JOIN (
+    SELECT * FROM MODELLING.CANCER__REF.DIM_CWT_REFERENCE 
+    WHERE REFERENCE_CODE = 26) perf ON a.TUMOUR_PERFORMANCESTATUS = perf.code
+LEFT JOIN MODELLING.CANCER__REF.DIM_ORGANISATIONS o ON a.TRUST_CODE = o.code
+LEFT JOIN DATA_LAKE.DEATHS."Deaths" d ON a."NHS_NUMBER Pseudo" = d."Pseudo NHS Number"
+
+-- Handle the duplicate diagnosis coding in the reference table to pull in a single stageable flag for each record.
+WHERE a."Snapshot" = (SELECT MAX("Snapshot") FROM DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION WHERE "Snapshot" != 'cas2505')
+    AND (c.rn = 1 OR c.RCRD_STAGEABLE IS NULL);
