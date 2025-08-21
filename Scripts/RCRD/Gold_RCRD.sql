@@ -1,0 +1,111 @@
+/*
+Script: DEV__REPORTING.PUBLIC.CANCER__RCRD__LOCAL
+Version: 1.1
+
+Description:
+Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. Also only selecting necessary columns for the RCRD Dashboard. Only including London Data.
+
+Notes:
+- Runtime around 3 secs
+
+
+Author: Eric Pinto
+
+Tables Used:
+
+DEV__MODELLING.CANCER__RCRD.RCRD
+
+Target Output Table:
+
+ - DEV__REPORTING.PUBLIC.CANCER__RCRD__LOCAL
+
+*/
+
+CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.PUBLIC.CANCER__RCRD__LOCAL(
+    SK_PATIENT_ID,
+    DATE_OF_DIAGNOSIS,
+    MONTH_OF_DIAGNOSIS,
+    QUARTER_OF_DIAGNOSIS,
+    YEAR_OF_DIAGNOSIS,
+    FINANCIAL_YEAR_OF_DIAGNOSIS,
+    ICD10_CODE,
+    TUMOUR_GROUP_NAME,
+    STAGE,
+    STAGE_EARLY_LATE,
+    IS_STAGEABLE_CANCER,
+    GENDER_NAME,
+    AGE_AT_DIAGNOSIS_GROUP,
+    ETHNICITY_CATEGORY,
+    RESIDENCE_LSOA_IMD_QUINTILE,
+    ROUTE_TO_DIAGNOSIS,
+    TRUST_NAME,
+    CANCER_ALLIANCE_NAME,
+    REGION_NAME,
+    ICB_NAME,
+    GP_PRACTICE_CODE,
+    GP_PRACTICE_NAME,
+    GP_PRACTICE_IMD_QUINTILE,
+    REG_PCN_NAME,
+    REG_BOROUGH_NCL_NAME,
+    RESIDENCE_LSOA_CODE,
+    RESIDENCE_LSOA_NAME,
+    RESIDENCE_NEIGHBOURHOOD,
+    SNAPSHOT
+    
+) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT = 'Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. Also only selecting necessary columns for the RCRD Dashboard. Only including London Data.'
+ as
+
+SELECT 
+
+SK_PATIENT_ID,
+DATE_OF_DIAGNOSIS,
+MONTH_OF_DIAGNOSIS,
+QUARTER_OF_DIAGNOSIS,
+YEAR_OF_DIAGNOSIS,
+FINANCIAL_YEAR_OF_DIAGNOSIS,
+ICD10_CODE,
+-- CASE STATEMENT that creates a new tumour grouping in line with the groupings in the National RCRD extracts. 
+CASE
+    WHEN ICD10_CODE IN ('C67') THEN 'Bladder'
+    WHEN ICD10_CODE IN ('C50') THEN 'Breast'
+    WHEN ICD10_CODE IN ('C18', 'C19', 'C20') THEN 'Colorectal'
+    WHEN ICD10_CODE IN ('C81') THEN 'Hodgkin lymphoma'
+    WHEN ICD10_CODE IN ('C64') THEN 'Kidney'
+    WHEN ICD10_CODE IN ('C33', 'C34') THEN 'Lung'
+    WHEN ICD10_CODE IN ('C43') THEN 'Melanoma'
+    WHEN ICD10_CODE IN ('C82', 'C83', 'C84', 'C85', 'C86', 'C88') THEN 'Non-Hodgkin lymphoma'
+    WHEN ICD10_CODE IN ('C15') THEN 'Oesophageal'
+    WHEN ICD10_CODE IN ('C56') THEN 'Ovarian'
+    WHEN ICD10_CODE IN ('C25') THEN 'Pancreatic'
+    WHEN ICD10_CODE IN ('C61') THEN 'Prostate'
+    WHEN ICD10_CODE IN ('C16') THEN 'Stomach'
+    WHEN ICD10_CODE IN ('C54', 'C55') THEN 'Uterine'
+    ELSE 'Other'
+    END AS TUMOUR_GROUP_NAME,
+    
+STAGE,
+STAGE_EARLY_LATE,
+IS_STAGEABLE_CANCER,
+GENDER_NAME,
+AGE_AT_DIAGNOSIS_GROUP,
+ETHNICITY_CATEGORY,
+RESIDENCE_LSOA_IMD_QUINTILE,
+ROUTE_TO_DIAGNOSIS,
+TRUST_NAME,
+CANCER_ALLIANCE_NAME,
+REGION_NAME,
+ICB_NAME,
+GP_PRACTICE_CODE,
+GP_PRACTICE_NAME,
+GP_PRACTICE_IMD_QUINTILE,
+REG_PCN_NAME,
+REG_BOROUGH_NCL_NAME,
+RESIDENCE_LSOA_CODE,
+RESIDENCE_LSOA_NAME,
+RESIDENCE_NEIGHBOURHOOD,
+SNAPSHOT
+
+FROM DEV__MODELLING.CANCER__RCRD.RCRD
+
+WHERE REGION_NAME = 'London'
