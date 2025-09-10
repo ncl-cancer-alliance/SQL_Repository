@@ -1,0 +1,2 @@
+HPV data is ingested through this repository:
+https://github.com/ncl-cancer-alliance/hpv_etl_code/tree/main
