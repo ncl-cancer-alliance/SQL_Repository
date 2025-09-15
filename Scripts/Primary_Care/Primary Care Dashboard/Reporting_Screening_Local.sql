@@ -111,4 +111,4 @@ SELECT * FROM (
     SELECT * FROM gp_gran
     UNION ALL
     SELECT * FROM lung_pcn
-) t
+) t;

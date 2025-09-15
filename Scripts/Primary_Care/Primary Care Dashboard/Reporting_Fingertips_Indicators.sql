@@ -28,13 +28,13 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CA
  COMMENT='Dynamic table to prepare Population Health data for use in the Primary Care Dashboard.'
  as
 
- -- CTE to enable retrieving past 3 years of data from individual Indicators
+-- CTE to enable retrieving past 3 years of data from individual Indicators
 WITH Original AS (
     SELECT 
     INDICATOR_ID,
 	INDICATOR_NAME,
-	GP_PRACTICE_CODE,
-	GP_PRACTICE_DESC,
+	PRACTICE_CODE AS GP_PRACTICE_CODE,
+	PRACTICE_NAME AS GP_PRACTICE_DESC,
 	PCN_CODE,
 	PCN_NAME,
 	BOROUGH_NAME,
@@ -65,4 +65,4 @@ WITH Original AS (
 SELECT *
 FROM ORIGINAL
 -- WHERE clause to get the previous 3 years of data for each indicator separately
-WHERE CAST(LEFT(DATE_INDICATOR_SORTABLE, 4) AS NUMBER) >= MAX_DATE - 3
+WHERE CAST(LEFT(DATE_INDICATOR_SORTABLE, 4) AS NUMBER) >= MAX_DATE - 3;

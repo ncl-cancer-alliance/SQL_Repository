@@ -31,8 +31,8 @@ WITH ORIGINAL AS (
     SELECT
         TO_NUMBER(NULL) AS INDICATOR_ID,
         'No. of Social Prescribing referrals made within the last 12 months' AS INDICATOR_NAME,
-        GP_PRACTICE_CODE,
-        GP_PRACTICE_DESC,
+        b.PRACTICE_CODE AS GP_PRACTICE_CODE,
+        b.PRACTICE_NAME AS GP_PRACTICE_DESC,
         PCN_CODE,
         PCN_NAME,
         BOROUGH AS BOROUGH_NAME,
@@ -58,16 +58,14 @@ WITH ORIGINAL AS (
     FROM DEV__MODELLING.CANCER__EMIS.SOCIAL_PRESCRIBING a
 
     LEFT JOIN (
-        SELECT DISTINCT 
-            PCN_NAME,
-            PCN_CODE,
-            BOROUGH, 
-            GP_PRACTICE_CODE, 
-            GP_PRACTICE_DESC, 
-            DEPRIVATION_QUINTILE
-        FROM MODELLING.LOOKUP_NCL.PRACTICE_REFERENCE_FINAL
-    ) b ON a.CDB = b.GP_PRACTICE_CODE
-
+    SELECT DISTINCT 
+        PCN_CODE,
+        PCN_NAME, 
+        BOROUGH, 
+        PRACTICE_CODE, 
+        PRACTICE_NAME
+    FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+    ) b ON a.CDB = b.PRACTICE_CODE
 )
 
 SELECT *
@@ -76,4 +74,4 @@ FROM ORIGINAL
 -- Filter to include only rows within 3 years of the latest available date
 WHERE DATE_INDICATOR_SORTABLE >= TO_NUMBER(
     TO_CHAR(DATEADD(YEAR, -3, TO_DATE(MAX_DATE, 'YYYY-MM-DD')), 'YYYYMM') || '00'
-)
+);
