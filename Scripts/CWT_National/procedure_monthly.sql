@@ -65,6 +65,12 @@ SELECT
     ORGANISATION_CODE,
     org."Organisation_Name" AS ORGANISATION_NAME,
     CASE ORGANISATION_TYPE
+        WHEN 'Provider' THEN par."Organisation_Code"
+        WHEN 'CCG' THEN COALESCE(par."Organisation_Code", org_ccg.ICB_CODE)
+        WHEN 'Sub-ICB' THEN par."Organisation_Code"
+        WHEN 'ICB' THEN org."Organisation_Code"
+    END AS ORGANISATION_ICB_CODE,
+    CASE ORGANISATION_TYPE
         WHEN 'Provider' THEN par."Organisation_Name"
         WHEN 'CCG' THEN COALESCE(par."Organisation_Name", org_ccg.ICB_NAME)
         WHEN 'Sub-ICB' THEN par."Organisation_Name"
@@ -212,7 +218,8 @@ ON org."SK_OrganisationID_ParentOrg" = par."SK_OrganisationID"
 LEFT JOIN (
     SELECT 
         orgd."OrganisationCode_Child" AS CCG_CODE,
-        org."Organisation_Name" AS ICB_NAME
+        org."Organisation_Name" AS ICB_NAME,
+        org."Organisation_Code" AS ICB_CODE
     FROM "Dictionary"."dbo"."OrganisationDescendent" orgd
     
     LEFT JOIN "Dictionary"."dbo"."Organisation" org
