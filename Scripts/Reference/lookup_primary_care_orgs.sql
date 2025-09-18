@@ -117,9 +117,9 @@ SELECT
     s."OrganisationStatus",    -- Active, Closed, etc
 
     -- Deprivation (NCL GP Practice specific: 2019 IMD)
-    d."Deprivation_Decile_2019_Fingertips",
-    d."Deprivation_Quintile_2019_Fingertips",
-
+    d.IMD_DECILE,
+    CEIL(d.IMD_DECILE / 2) AS IMD_QUINTILE_2,
+    
     -- PCN
     c."SK_OrganisationID",
     c."Organisation_Code",
@@ -128,7 +128,7 @@ SELECT
 
     -- Neighbourhood & Borough
     n."Neighbourhood",
-    b."Borough",
+    gp_ref.BOROUGH AS "Borough",
 
     -- Region & ICB
     r."SK_OrganisationID",
@@ -164,12 +164,14 @@ LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_OUTPUTAREA l
 LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_OUTPUTAREA m 
     ON p."MSOA" = m."OACode" AND m."CensusYear" = 2011
 LEFT JOIN (
-    SELECT DISTINCT "pcn_code", "Borough"
-    FROM MODELLING.LOOKUP_NCL.SR_PCN_BOROUGH_LOOKUP
-) b 
-    ON c."Organisation_Code" = b."pcn_code"
-LEFT JOIN MODELLING.LOOKUP_NCL.DIM_PRACTICE_DEPRIVATION d 
-    ON a."Organisation_Code" = d."Practice_Code"
+    SELECT DISTINCT
+        PCN_CODE,
+        BOROUGH
+    FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+) gp_ref
+ON c."Organisation_Code" = gp_ref.PCN_CODE
+LEFT JOIN DEV__MODELLING.CANCER__REF.PRACTICE_IMD d 
+    ON a."Organisation_Code" = d.PRACTICE_CODE
 LEFT JOIN "Dictionary"."dbo"."OrganisationType" t1 
     ON a."SK_OrganisationTypeID" = t1."SK_OrganisationTypeID"
 LEFT JOIN "Dictionary"."dbo"."OrganisationType" t2 
