@@ -28,15 +28,15 @@ SELECT
 --For each data source, add a "Indicator_Name" and combine the datasets
 FROM (
     SELECT 'CAN004 - Cancer Care Review within 12 months' AS "Indicator_Name", * 
-    FROM DATA_LAKE.CANCER__EMIS.CCR_CAN004
+    FROM DATA_LAKE__NCL.CANCER__EMIS.CCR_CAN004
     
     UNION ALL
     
     SELECT 'CAN005 - Cancer support offered within 3 months' AS "Indicator_Name", * 
-    FROM DATA_LAKE.CANCER__EMIS.CCR_CAN005
+    FROM DATA_LAKE__NCL.CANCER__EMIS.CCR_CAN005
     
     UNION ALL
     
     SELECT 'USC referrals safety netted via e-safety netting tool' AS "Indicator_Name", * 
-    FROM DATA_LAKE.CANCER__EMIS.ESAFETY
+    FROM DATA_LAKE__NCL.CANCER__EMIS.ESAFETY
 )

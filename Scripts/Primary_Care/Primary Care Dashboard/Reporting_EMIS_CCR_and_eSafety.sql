@@ -1,0 +1,45 @@
+-- Dynamic table to prepare Safety_Netting data for use in the Primary Care Dashboard. Joins Practice Reference for Names.
+-- Contact: eric.pinto@nhs.net
+
+CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.PUBLIC.CANCER__EMIS__SAFETY_NETTING_AND_CCR(
+
+    INDICATOR_NAME,
+    PRACTICE_CODE,
+    PRACTICE_NAME,
+    DEPRIVATION_QUINTILE,
+    PCN_NAME,
+    BOROUGH,
+    POPULATION_COUNT,
+    PARENT_COUNT,
+    DATE_FULL
+    
+    
+) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Dynamic table to prepare Safety_Netting data for use in the Primary Care Dashboard.'
+ as
+
+SELECT 
+
+a.INDICATOR_NAME,
+b.PRACTICE_CODE AS GP_PRACTICE_CODE,
+b.PRACTICE_NAME,
+CEIL(gp_imd.IMD_DECILE / 2) AS DEPRIVATION_QUINTILE,
+b.PCN_NAME, 
+b.BOROUGH, 
+a.NUMERATOR AS "POPULATION_COUNT",
+a.DENOMINATOR AS "PARENT_COUNT",
+a.DATE_FULL
+
+FROM DEV__MODELLING.CANCER__EMIS.SAFETY_NETTING_AND_CCR a
+LEFT JOIN (
+    SELECT DISTINCT 
+        PCN_NAME, 
+        BOROUGH, 
+        PRACTICE_CODE, 
+        PRACTICE_NAME
+    FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+) b ON a.PRACTICE_CODE = b.PRACTICE_CODE
+
+LEFT JOIN DEV__MODELLING.CANCER__REF.PRACTICE_IMD gp_imd
+ON a.PRACTICE_CODE = gp_imd.PRACTICE_CODE
+AND gp_imd.DATE_INDICATOR = 2019;

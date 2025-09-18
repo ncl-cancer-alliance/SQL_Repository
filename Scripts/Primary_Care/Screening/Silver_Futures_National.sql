@@ -58,7 +58,7 @@ FROM (
         ) AS "Performance",
         "Acceptable",
         "Achievable"
-    FROM DATA_LAKE.CANCER__SCREENING.SCREENING_NATIONAL
+    FROM DATA_LAKE__NCL.CANCER__SCREENING.SCREENING_NATIONAL
     GROUP BY ALL
 
     UNION ALL
@@ -76,6 +76,6 @@ FROM (
         TO_NUMBER(REPLACE("Performance", '%', '')) / 100 AS "Performance",
         "Acceptable",
         "Achievable"
-    FROM DATA_LAKE.CANCER__SCREENING.SCREENING_NATIONAL
+    FROM DATA_LAKE__NCL.CANCER__SCREENING.SCREENING_NATIONAL
     WHERE "Organisation Name" = 'London'
 )
