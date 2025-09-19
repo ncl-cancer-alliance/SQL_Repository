@@ -77,7 +77,7 @@ SELECT
         WHEN 'ICB' THEN org."Organisation_Name"
     END AS ORGANISATION_ICB_NAME,
     org_ca.CANCER_ALLIANCE,
-    rt.RADIOTHERAPHY_NETWORK_NAME,
+    rt.RADIOTHERAPY_NETWORK,
 
     --Breakdown Fields
     ----Reformat for consistency
@@ -234,9 +234,9 @@ ON ORGANISATION_CODE = org_ccg.CCG_CODE
 LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
 ON ORGANISATION_CODE = org_ca.CODE
 
---Join for Provider to Radiotheraphy Network
-----This mapping is exclusive to (some) provider rows, the RADIOTHERAPHY_NETWORK_NAME will be NULL for other cases
-LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPHY_NETWORK rt
+--Join for Provider to Radiotherapy Network
+----This mapping is exclusive to (some) provider rows, the RADIOTHERAPY_NETWORK will be NULL for other cases
+LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
 ON ORGANISATION_CODE = rt.PROVIDER_CODE
 AND ROW_POPULATION_TYPE = 'Provider';
 
