@@ -174,6 +174,11 @@ base_query AS (
             WHEN ''31-DAY WAIT'' THEN AFTER_31_DAYS
             WHEN ''62 DAY''      THEN AFTER_62_DAYS
         END AS BREACHES,
+        ----Performance = NO_COMPLIANT / NO_PATIENTS
+        ----DIV0NULL is used to get around rows with 0 patients in the data, performance will be NULL in these cases
+        DIV0NULL(
+            NO_COMPLIANT,
+            NO_PATIENTS) AS STANDARD_PERFORMANCE,
         TARGET,
     
         --pmct.STANDARD Metrics (Breakdown)--
@@ -278,7 +283,7 @@ SELECT
         SUM(NO_PATIENTS)
     ) AS STANDARD_PERFORMANCE,
     
-    SUM(TARGET) AS TARGET,
+    ROUND(AVG(TARGET), 2) AS TARGET,
     SUM(TWO_WEEK_WAIT_DAYS_WITHIN_14) AS TWO_WEEK_WAIT_DAYS_WITHIN_14,
     SUM(TWO_WEEK_WAIT_DAYS_15_TO_16) AS TWO_WEEK_WAIT_DAYS_15_TO_16,
     SUM(TWO_WEEK_WAIT_DAYS_17_TO_21) AS TWO_WEEK_WAIT_DAYS_17_TO_21,
