@@ -176,7 +176,7 @@ base_query AS (
             WHEN ''28 DAY''      THEN AFTER_28_DAYS
             WHEN ''31-DAY WAIT'' THEN AFTER_31_DAYS
             WHEN ''62 DAY''      THEN AFTER_62_DAYS
-        END AS BREACHES,
+        END AS NO_BREACHES,
         ----Performance = NO_COMPLIANT / NO_PATIENTS
         ----DIV0NULL is used to get around rows with 0 patients in the data, performance will be NULL in these cases
         DIV0NULL(
@@ -277,7 +277,7 @@ SELECT
     FDS_PATHWAY, 
     SUM(NO_PATIENTS) AS NO_PATIENTS,
     SUM(NO_COMPLIANT) AS NO_COMPLIANT,
-    SUM(BREACHES) AS BREACHES,
+    SUM(NO_BREACHES) AS NO_BREACHES,
     
     --Performance = NO_COMPLIANT / NO_PATIENTS
     --DIV0NULL is used to get around rows with 0 patients in the data, performance will be NULL in these cases
