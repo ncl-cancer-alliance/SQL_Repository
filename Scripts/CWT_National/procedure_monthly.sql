@@ -121,10 +121,6 @@ base_query AS (
             --FDS
             WHEN pmct.STANDARD = ''28 DAY'' THEN ''FDS''
             --31 Day
-            ----Pre Oct 23 31-Day data is all listed as Subsequent so relabel to Combined
-            WHEN (CANCER_TYPE LIKE ''31-DAY - FIRST%'' AND DATE_PERIOD < ''2023-10-01 00:00:00.000'') THEN ''Combined''
-            WHEN (CANCER_TYPE LIKE ''31-DAY - 2nd%'' AND DATE_PERIOD < ''2023-10-01 00:00:00.000'') THEN ''Combined''
-            ----
             WHEN CANCER_TYPE LIKE ''31-DAY - FIRST%'' THEN ''First''
             WHEN CANCER_TYPE LIKE ''31-DAY - 2nd%'' THEN ''Subsequent''
             WHEN CANCER_TYPE LIKE ''31-DAY COMBINED%'' THEN ''Combined''
@@ -272,6 +268,9 @@ base_query AS (
     LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
     ON ORGANISATION_CODE = rt.PROVIDER_CODE
     AND ROW_POPULATION_TYPE = ''Provider''
+    
+    --Filter to remove pre-Oct-23 split in admitted and non-admitted patients
+    WHERE CARE_SETTING NOT IN (''ADMITTED'', ''NON-ADMITTED'')
 )
 
 SELECT 
