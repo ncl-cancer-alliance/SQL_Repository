@@ -121,10 +121,11 @@ base_query AS (
             --FDS
             WHEN pmct.STANDARD = ''28 DAY'' THEN ''FDS''
             --31 Day
-            WHEN CANCER_TYPE LIKE ''31-DAY - FIRST%'' THEN ''First''
-            ----Pre Oct 23 31-Day data is all listed as Subsequent so relabel to Combined 
+            ----Pre Oct 23 31-Day data is all listed as Subsequent so relabel to Combined
+            WHEN (CANCER_TYPE LIKE ''31-DAY - FIRST%'' AND DATE_PERIOD < ''2023-10-01 00:00:00.000'') THEN ''Combined''
             WHEN (CANCER_TYPE LIKE ''31-DAY - 2nd%'' AND DATE_PERIOD < ''2023-10-01 00:00:00.000'') THEN ''Combined''
             ----
+            WHEN CANCER_TYPE LIKE ''31-DAY - FIRST%'' THEN ''First''
             WHEN CANCER_TYPE LIKE ''31-DAY - 2nd%'' THEN ''Subsequent''
             WHEN CANCER_TYPE LIKE ''31-DAY COMBINED%'' THEN ''Combined''
             WHEN CANCER_TYPE LIKE ''31-DAY WAIT - RARE%'' THEN ''Rare Cancer''
