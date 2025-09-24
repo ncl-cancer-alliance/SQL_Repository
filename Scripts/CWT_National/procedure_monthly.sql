@@ -77,6 +77,8 @@ base_query AS (
             WHEN ''Sub-ICB'' THEN par."Organisation_Name"
             WHEN ''ICB'' THEN org."Organisation_Name"
         END AS ORGANISATION_ICB_NAME,
+        org_reg.REGION_CODE AS ORGANISATION_REGION_CODE,
+        org_reg.REGION_NAME AS ORGANISATION_REGION_NAME,
         org_ca.CANCER_ALLIANCE,
         rt.RADIOTHERAPY_NETWORK,
     
@@ -244,6 +246,21 @@ base_query AS (
         AND "OrganisationPrimaryRole_Child" = ''RO98''
     ) org_ccg
     ON ORGANISATION_CODE = org_ccg.CCG_CODE
+
+    --Join for parent name (Region) for ICBs
+    LEFT JOIN (
+        SELECT 
+            orgd."OrganisationCode_Child" AS CHILD_CODE,
+            LEFT(org."Organisation_Name", LENGTH(org."Organisation_Name") - 20) AS REGION_NAME,
+            org."Organisation_Code" AS REGION_CODE
+        FROM "Dictionary"."dbo"."OrganisationDescendent" orgd
+        
+        LEFT JOIN "Dictionary"."dbo"."Organisation" org
+        ON orgd."OrganisationCode_Root" = org."Organisation_Code"
+        
+        WHERE "OrganisationPrimaryRole_Root" = ''RO209''
+    ) org_reg
+    ON ORGANISATION_ICB_CODE = org_reg.CHILD_CODE
     
     --Join for Organisation to Cancer Alliance mapping
     LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
@@ -266,7 +283,9 @@ SELECT
     ORGANISATION_CODE, 
     ORGANISATION_NAME, 
     ORGANISATION_ICB_CODE, 
-    ORGANISATION_ICB_NAME, 
+    ORGANISATION_ICB_NAME,
+    ORGANISATION_REGION_CODE,
+    ORGANISATION_REGION_NAME,
     CANCER_ALLIANCE, 
     RADIOTHERAPY_NETWORK, 
     STANDARD, 
@@ -281,10 +300,10 @@ SELECT
     
     --Performance = NO_COMPLIANT / NO_PATIENTS
     --DIV0NULL is used to get around rows with 0 patients in the data, performance will be NULL in these cases
-    DIV0NULL(
+    ROUND(DIV0NULL(
         SUM(NO_COMPLIANT),
         SUM(NO_PATIENTS)
-    ) AS STANDARD_PERFORMANCE,
+    ), 2) AS STANDARD_PERFORMANCE,
     
     ROUND(AVG(TARGET), 2) AS TARGET,
     SUM(TWO_WEEK_WAIT_DAYS_WITHIN_14) AS TWO_WEEK_WAIT_DAYS_WITHIN_14,
