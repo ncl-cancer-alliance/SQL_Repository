@@ -1,11 +1,7 @@
-create or replace view DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__RADIOTHERAPY.YEARLY_ACTIVITY(
-	"Financial Year",
-	"Radiotherapy Network",
-	"Cancer Pathway",
-	"Patients Referred",
-	"Last Year Patients Referred"
-) COMMENT='View to get yearly activity and calculate year on year growth. Contact: jake.kealey@nhs.net'
- as
+--Published View
+CREATE OR REPLACE VIEW DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__RADIOTHERAPY.YEARLY_ACTIVITY
+COMMENT = "View to get yearly activity and calculate year on year growth. Contact: jake.kealey@nhs.net"
+AS
 
 SELECT 
 FIN_YEAR AS "Financial Year",
