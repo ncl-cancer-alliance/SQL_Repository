@@ -172,6 +172,7 @@ LEFT JOIN (
 ON c."Organisation_Code" = gp_ref.PCN_CODE
 LEFT JOIN DEV__MODELLING.CANCER__REF.PRACTICE_IMD d 
     ON a."Organisation_Code" = d.PRACTICE_CODE
+    AND d.DATE_INDICATOR = 2019
 LEFT JOIN "Dictionary"."dbo"."OrganisationType" t1 
     ON a."SK_OrganisationTypeID" = t1."SK_OrganisationTypeID"
 LEFT JOIN "Dictionary"."dbo"."OrganisationType" t2 
