@@ -39,6 +39,13 @@ LEFT JOIN YEAR_AGG prev
 ON base.RADIOTHERAPY_NETWORK = prev.RADIOTHERAPY_NETWORK
 AND base.CANCER_PATHWAY = prev.CANCER_PATHWAY
 AND base.FIN_YEAR_NUM = prev.FIN_YEAR_NUM + 1
-AND base.FIN_YEAR NOT IN (SELECT * FROM FILTER_LATEST)
+AND NOT(
+    --Filter out the latest year if incomplete
+    base.FIN_YEAR IN (SELECT * FROM FILTER_LATEST)
+    --Filter out the incomplete 2023-24 year for non-Subsequent data
+    OR (
+        prev.FIN_YEAR = '2023-24' AND prev.CANCER_PATHWAY != 'Subsequent'
+    )
+)
 
 ORDER BY base.FIN_YEAR, RADIOTHERAPY_NETWORK;
