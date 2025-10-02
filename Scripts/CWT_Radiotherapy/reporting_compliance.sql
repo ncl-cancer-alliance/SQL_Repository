@@ -11,111 +11,155 @@ CREATE OR REPLACE TABLE DEV__REPORTING.CANCER__RADIOTHERAPY.COMPLIANCE
 COMMENT=''Table containing Radiotherapy compliance (against 31 Day Performance).''
 AS 
 
-SELECT
-    DATE_PERIOD, 
-    FIN_YEAR, 
-    FIN_MONTH_NUMBER, 
-    FIN_MONTH_NAME,
-    CONCAT(''Q'', CAST(CEIL(FIN_MONTH_NUMBER / 3) AS CHAR(1))) AS FIN_QUARTER,
-    ORGANISATION_CODE,
-    ORGANISATION_NAME,
-    IS_BENCHMARK_SUMMARY_GROUP,
-    ORGANISATION_ICB_NAME,
-    CANCER_ALLIANCE,
-    RADIOTHERAPY_NETWORK,
-    CANCER_PATHWAY, 
-    SUM(NO_PATIENTS) AS NO_PATIENTS, 
-    SUM(NO_COMPLIANT) AS NO_COMPLIANT, 
-    SUM(NO_BREACHES) AS NO_BREACHES,
-    AVG(TARGET) AS TARGET,
-    SUM(D31_DAYS_WITHIN_31) AS D31_DAYS_WITHIN_31, 
-    SUM(D31_DAYS_32_TO_38) AS D31_DAYS_32_TO_38, 
-    SUM(D31_DAYS_39_TO_48) AS D31_DAYS_39_TO_48, 
-    SUM(D31_DAYS_49_TO_62) AS D31_DAYS_49_TO_62, 
-    SUM(D31_DAYS_MORE_THAN_62) AS D31_DAYS_MORE_THAN_62
+--Top level query to get 12 Month Rolling for key metrics
+SELECT 
+    *,
+    COUNT(NO_PATIENTS) OVER (
+        PARTITION BY ORGANISATION_CODE, CANCER_PATHWAY
+        ORDER BY DATE_PERIOD ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+    ) AS R12_PRECEEDING_ROWS,
 
---Queries to get the benchmarking data (England, London, NE&C RT Network) and provider data
-FROM (   
-    --London data--
-    SELECT 
-        r_lon.* EXCLUDE (
-            ORGANISATION_CODE, 
-            ORGANISATION_NAME, 
-            ORGANISATION_ICB_NAME,
-            CANCER_ALLIANCE,
-            RADIOTHERAPY_NETWORK
-        ),
-        ''XXL'' AS ORGANISATION_CODE,
-        ''London'' AS ORGANISATION_NAME,
-        NULL AS ORGANISATION_ICB_NAME,
-        NULL AS CANCER_ALLIANCE,
-        NULL AS RADIOTHERAPY_NETWORK,
-        TRUE AS IS_BENCHMARK_SUMMARY_GROUP
-    FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_lon
+    CASE R12_PRECEEDING_ROWS
+    WHEN 12 
+        THEN
+        SUM(NO_PATIENTS) OVER(
+            PARTITION BY ORGANISATION_CODE, CANCER_PATHWAY
+            ORDER BY DATE_PERIOD ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+        )
+        / 12 
+        ELSE NULL
+    END AS R12_NO_PATIENTS,
 
-    ----Filter to only London Providers
-    INNER JOIN "Dictionary"."dbo"."Organisation" org
-    ON r_lon.ORGANISATION_ICB_CODE = org."Organisation_Code" 
-    AND org."SK_ParentOrg_ID" = 234932
-
-    UNION ALL
-
-    --North Central and North East London Radiotherapy Network--
-    SELECT 
-        r_nce.* EXCLUDE (
-            ORGANISATION_CODE, 
-            ORGANISATION_NAME, 
-            ORGANISATION_ICB_NAME,
-            CANCER_ALLIANCE,
-            RADIOTHERAPY_NETWORK
-        ),
-        ''XXN'' AS ORGANISATION_CODE,
-        ''North & East London RT Network'' AS ORGANISATION_NAME,
-        NULL AS ORGANISATION_ICB_NAME,
-        NULL AS CANCER_ALLIANCE,
-        NULL AS RADIOTHERAPY_NETWORK,
-        TRUE AS IS_BENCHMARK_SUMMARY_GROUP
-    FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_nce
-    WHERE RADIOTHERAPY_NETWORK = ''North & East London''
-
-    UNION ALL
+    CASE R12_PRECEEDING_ROWS
+    WHEN 12 
+        THEN
+        SUM(NO_COMPLIANT) OVER(
+            PARTITION BY ORGANISATION_CODE, CANCER_PATHWAY
+            ORDER BY DATE_PERIOD ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+        )
+        / 12 
+        ELSE NULL
+    END AS R12_NO_COMPLIANT,
     
-    --Provider data including the England overall--
-    SELECT 
-        r_rnt.* EXCLUDE (
-            ORGANISATION_CODE, 
-            ORGANISATION_NAME, 
-            ORGANISATION_ICB_NAME,
-            CANCER_ALLIANCE,
-            RADIOTHERAPY_NETWORK
-        ),
+    CASE R12_PRECEEDING_ROWS
+    WHEN 12 
+        THEN
+        SUM(NO_BREACHES) OVER(
+            PARTITION BY ORGANISATION_CODE, CANCER_PATHWAY
+            ORDER BY DATE_PERIOD ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+        )
+        / 12 
+        ELSE NULL
+    END AS R12_NO_BREACHES
+    
+--Base query without 12 Month Rolling
+FROM (
+    
+    SELECT
+        DATE_PERIOD, 
+        FIN_YEAR, 
+        FIN_MONTH_NUMBER, 
+        FIN_MONTH_NAME,
+        CONCAT(''Q'', CAST(CEIL(FIN_MONTH_NUMBER / 3) AS CHAR(1))) AS FIN_QUARTER,
         ORGANISATION_CODE,
-        ----Set England''s Organisation Name
-        CASE 
-            WHEN ORGANISATION_CODE = ''ALL ENGLISH PROVIDERS'' 
-                THEN ''England''
-            WHEN RIGHT(ORGANISATION_NAME, 9) = ''NHS Trust'' 
-                THEN LEFT(ORGANISATION_NAME, LENGTH(ORGANISATION_NAME) - 9)
-            WHEN RIGHT(ORGANISATION_NAME, 20) = ''NHS Foundation Trust''
-                THEN LEFT(ORGANISATION_NAME, LENGTH(ORGANISATION_NAME) - 20)
-            ELSE ORGANISATION_NAME 
-        END AS ORGANISATION_NAME,
-
+        ORGANISATION_NAME,
+        IS_BENCHMARK_SUMMARY_GROUP,
         ORGANISATION_ICB_NAME,
         CANCER_ALLIANCE,
         RADIOTHERAPY_NETWORK,
+        CANCER_PATHWAY, 
+        SUM(NO_PATIENTS) AS NO_PATIENTS, 
+        SUM(NO_COMPLIANT) AS NO_COMPLIANT, 
+        SUM(NO_BREACHES) AS NO_BREACHES,
+        AVG(TARGET) AS TARGET,
+        SUM(D31_DAYS_WITHIN_31) AS D31_DAYS_WITHIN_31, 
+        SUM(D31_DAYS_32_TO_38) AS D31_DAYS_32_TO_38, 
+        SUM(D31_DAYS_39_TO_48) AS D31_DAYS_39_TO_48, 
+        SUM(D31_DAYS_49_TO_62) AS D31_DAYS_49_TO_62, 
+        SUM(D31_DAYS_MORE_THAN_62) AS D31_DAYS_MORE_THAN_62
+    
+    --Queries to get the benchmarking data (England, London, NE&C RT Network) and provider data
+    FROM (   
+        --London data--
+        SELECT 
+            r_lon.* EXCLUDE (
+                ORGANISATION_CODE, 
+                ORGANISATION_NAME, 
+                ORGANISATION_ICB_NAME,
+                CANCER_ALLIANCE,
+                RADIOTHERAPY_NETWORK
+            ),
+            ''XXL'' AS ORGANISATION_CODE,
+            ''London'' AS ORGANISATION_NAME,
+            NULL AS ORGANISATION_ICB_NAME,
+            NULL AS CANCER_ALLIANCE,
+            NULL AS RADIOTHERAPY_NETWORK,
+            TRUE AS IS_BENCHMARK_SUMMARY_GROUP
+        FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_lon
+    
+        ----Filter to only London Providers
+        INNER JOIN "Dictionary"."dbo"."Organisation" org
+        ON r_lon.ORGANISATION_ICB_CODE = org."Organisation_Code" 
+        AND org."SK_ParentOrg_ID" = 234932
+    
+        UNION ALL
+    
+        --North Central and North East London Radiotherapy Network--
+        SELECT 
+            r_nce.* EXCLUDE (
+                ORGANISATION_CODE, 
+                ORGANISATION_NAME, 
+                ORGANISATION_ICB_NAME,
+                CANCER_ALLIANCE,
+                RADIOTHERAPY_NETWORK
+            ),
+            ''XXN'' AS ORGANISATION_CODE,
+            ''North & East London RT Network'' AS ORGANISATION_NAME,
+            NULL AS ORGANISATION_ICB_NAME,
+            NULL AS CANCER_ALLIANCE,
+            NULL AS RADIOTHERAPY_NETWORK,
+            TRUE AS IS_BENCHMARK_SUMMARY_GROUP
+        FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_nce
+        WHERE RADIOTHERAPY_NETWORK = ''North & East London''
+    
+        UNION ALL
         
-        ----Set England as Core and the rest as Providers
-        CASE ORGANISATION_CODE 
-            WHEN ''ALL ENGLISH PROVIDERS'' THEN TRUE
-            ELSE FALSE 
-        END AS IS_BENCHMARK_SUMMARY_GROUP
-    FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_rnt
+        --Provider data including the England overall--
+        SELECT 
+            r_rnt.* EXCLUDE (
+                ORGANISATION_CODE, 
+                ORGANISATION_NAME, 
+                ORGANISATION_ICB_NAME,
+                CANCER_ALLIANCE,
+                RADIOTHERAPY_NETWORK
+            ),
+            ORGANISATION_CODE,
+            ----Set England''s Organisation Name
+            CASE 
+                WHEN ORGANISATION_CODE = ''ALL ENGLISH PROVIDERS'' 
+                    THEN ''England''
+                WHEN RIGHT(ORGANISATION_NAME, 9) = ''NHS Trust'' 
+                    THEN LEFT(ORGANISATION_NAME, LENGTH(ORGANISATION_NAME) - 9)
+                WHEN RIGHT(ORGANISATION_NAME, 20) = ''NHS Foundation Trust''
+                    THEN LEFT(ORGANISATION_NAME, LENGTH(ORGANISATION_NAME) - 20)
+                ELSE ORGANISATION_NAME 
+            END AS ORGANISATION_NAME,
+    
+            ORGANISATION_ICB_NAME,
+            CANCER_ALLIANCE,
+            RADIOTHERAPY_NETWORK,
+            
+            ----Set England as Core and the rest as Providers
+            CASE ORGANISATION_CODE 
+                WHEN ''ALL ENGLISH PROVIDERS'' THEN TRUE
+                ELSE FALSE 
+            END AS IS_BENCHMARK_SUMMARY_GROUP
+        FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_RADIOTHERAPY r_rnt
+    )
+    
+    GROUP BY ALL
 )
-
-GROUP BY ALL
-
-ORDER BY DATE_PERIOD, ORGANISATION_NAME, CANCER_PATHWAY;
+ORDER BY ORGANISATION_NAME, CANCER_PATHWAY, DATE_PERIOD;
 
 END;
 ';
