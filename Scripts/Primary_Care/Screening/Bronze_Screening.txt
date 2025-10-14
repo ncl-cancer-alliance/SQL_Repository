@@ -1,2 +1,2 @@
 Screening (NHS Futures) data is ingested through this repository:
-https://github.com/ncl-cancer-alliance/ingestion_emis
+https://github.com/ncl-cancer-alliance/ingestion_screening
