@@ -1,19 +1,18 @@
 -- Dynamic table to prepare HPV data for use in the Primary Care Dashboard. London Indicator hardcoded until this data can be accessed in a refrence table.
 -- Contact: eric.pinto@nhs.net
 
-create or replace dynamic table DEV__REPORTING.PUBLIC.CANCER__VACCINATIONS__HPV(
-
-    LOCAL_AUTHORITY,
-	YEAR_GROUP,
-	GENDER,
-	"NUMBER",
-	NUMBER_VACCINATED,
+create or replace dynamic table DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__VACCINATIONS__HPV(
+	BOROUGH_NAME,
+	YEAR_GROUP_NUMBER,
+	GENDER_NAME,
+	STUDENTS_TOTAL,
+	STUDENTS_VACCINATED,
 	ACADEMIC_YEAR_END_DATE,
 	ACADEMIC_YEAR_TEXT,
-    IS_NCL,
-    IS_LONDON,
-    IS_ENGLAND
-
+	DATE_EXTRACT,
+	IS_NCL,
+	IS_LONDON,
+	IS_ENGLAND
 ) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
  COMMENT='Dynamic table to prepare HPV data for use in the Primary Care Dashboard. London Indicator hardcoded until this data can be accessed in a refrence table.'
  as
@@ -21,12 +20,12 @@ create or replace dynamic table DEV__REPORTING.PUBLIC.CANCER__VACCINATIONS__HPV(
  SELECT
     h.*,  -- Select all columns from Hpv_Data
     CASE 
-        WHEN h.Local_Authority IN ('Barnet', 'Enfield', 'Haringey', 'Camden', 'Islington') 
+        WHEN h.BOROUGH_NAME IN ('Barnet', 'Enfield', 'Haringey', 'Camden', 'Islington') 
         THEN '1' ELSE '0' 
     END AS NCL_Ind,
     
 	CASE 
-		 WHEN Local_Authority IN (
+		 WHEN BOROUGH_NAME IN (
 			'Barking And Dagenham', 'Barnet', 'Bexley', 'Brent', 'Bromley',
 			'Camden', 'City Of London', 'Croydon', 'Ealing', 'Enfield',
 			'Greenwich', 'Hackney', 'Hammersmith And Fulham', 'Haringey',
@@ -41,4 +40,4 @@ create or replace dynamic table DEV__REPORTING.PUBLIC.CANCER__VACCINATIONS__HPV(
 
     '1' AS England_Ind  -- Static indicator for England
 
-    FROM MODELLING.CANCER__PRIMARY_CARE.HPV_UPTAKE h
+    FROM DEV__MODELLING.CANCER__VACCINATION.HPV_UPTAKE h;
