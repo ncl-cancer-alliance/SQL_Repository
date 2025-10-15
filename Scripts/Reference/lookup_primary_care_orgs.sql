@@ -86,7 +86,7 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_O
     PARENT_ORG_TYPE VARCHAR(50),
     DATETIME_RUN DATETIME
 )
-target_lag = '1 DAY'
+target_lag = '7 Days'
 refresh_mode = FULL
 warehouse = NCL_ANALYTICS_XS
 AS
@@ -170,7 +170,7 @@ LEFT JOIN (
     FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
 ) gp_ref
 ON c."Organisation_Code" = gp_ref.PCN_CODE
-LEFT JOIN DEV__MODELLING.CANCER__REF.PRACTICE_IMD d 
+LEFT JOIN MODELLING.LOOKUP_NCL.IMD_PRACTICE d 
     ON a."Organisation_Code" = d.PRACTICE_CODE
     AND d.DATE_INDICATOR = 2019
 LEFT JOIN "Dictionary"."dbo"."OrganisationType" t1 
@@ -180,3 +180,7 @@ LEFT JOIN "Dictionary"."dbo"."OrganisationType" t2
 
 -- Only include primary care providers: Dental Practices, GPs, Pharmacies
 WHERE a."SK_OrganisationTypeID" IN (43, 44, 8);
+
+
+
+
