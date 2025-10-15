@@ -1,25 +1,24 @@
 -- Dynamic table which combines cleaned local screening data with lung screening data.
 -- Contact: eric.pinto@nhs.net
 
-create or replace dynamic table DEV__REPORTING.PUBLIC.CANCER__SCREENING__LOCAL(
-    "REGION_NAME",
-    "PCN_NAME",
-    "BOROUGH",
-    "PRACTICE_CODE",
-    "PRACTICE_NAME",
-    "DEPRIVATION_QUINTILE",
-    "POPULATION_COUNT",
-    "PARENT_COUNT",
-    "DATE_FULL",
-    "COHORT_AGE_RANGE",
-    "COHORT_DESCRIPTION",
-    "DENOMINATOR_NAME",
-    "ACCEPTABLE",
-    "ACHIEVABLE",
-    "PROGRAMME",
-    "IS_MAX_DATE"
-
-) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+create or replace dynamic table DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__SCREENING__LOCAL(
+	REGION_NAME,
+	PCN_NAME,
+	BOROUGH,
+	PRACTICE_CODE,
+	PRACTICE_NAME,
+	DEPRIVATION_QUINTILE,
+	POPULATION_COUNT,
+	PARENT_COUNT,
+	DATE_FULL,
+	COHORT_AGE_RANGE,
+	COHORT_DESCRIPTION,
+	DENOMINATOR_NAME,
+	ACCEPTABLE,
+	ACHIEVABLE,
+	PROGRAMME,
+	IS_MAX_DATE
+) target_lag = '7 days' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
  COMMENT='Dynamic table which combines cleaned local screening data with lung screening data.'
  as
 WITH gp_gran AS (
@@ -28,8 +27,8 @@ WITH gp_gran AS (
         b.PCN_NAME,
         b.BOROUGH,
         a.PRACTICE_CODE,
-        b.GP_PRACTICE_DESC AS Practice_Name,
-        b.DEPRIVATION_QUINTILE,
+        b.PRACTICE_NAME AS Practice_Name,
+        CEIL(gp_imd.IMD_DECILE/2) AS DEPRIVATION_QUINTILE,
         SUM(a.NUMERATOR::INT) AS Population_Count,
         SUM(a.DENOMINATOR::INT) AS Parent_Count,
         a.DATE_FULL,
@@ -50,15 +49,24 @@ WITH gp_gran AS (
         END AS IS_MAX_DATE
     FROM DEV__MODELLING.CANCER__SCREENING.SCREENING_LOCAL a
     LEFT JOIN (
-        SELECT DISTINCT PCN_NAME, BOROUGH, GP_PRACTICE_CODE, GP_PRACTICE_DESC, DEPRIVATION_QUINTILE 
-        FROM MODELLING.LOOKUP_NCL.PRACTICE_REFERENCE_FINAL
-    ) b ON a.PRACTICE_CODE = b.GP_PRACTICE_CODE
+        SELECT DISTINCT 
+            PCN_NAME, 
+            BOROUGH, 
+            PRACTICE_CODE, 
+            PRACTICE_NAME
+        FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+    ) b ON a.PRACTICE_CODE = b.PRACTICE_CODE
+    
+    LEFT JOIN MODELLING.LOOKUP_NCL.IMD_PRACTICE gp_imd
+    ON a.PRACTICE_CODE = gp_imd.PRACTICE_CODE
+    AND gp_imd.DATE_INDICATOR = 2019
+    
     GROUP BY 
-        b.GP_PRACTICE_DESC,
+        b.PRACTICE_NAME,
         b.PCN_NAME,
         b.BOROUGH,
         a.PRACTICE_CODE,
-        b.DEPRIVATION_QUINTILE,
+        CEIL(gp_imd.IMD_DECILE/2),
         a.DATE_FULL,
         a.COHORT_AGE_RANGE,
         a.COHORT_DESCRIPTION,
@@ -90,11 +98,14 @@ lung_pcn AS (
         FALSE AS IS_MAX_DATE
     FROM DEV__MODELLING.CANCER__SCREENING.LUNG_OVERVIEW lung
     LEFT JOIN (
-        SELECT DISTINCT PCN_CODE, BOROUGH 
-        FROM MODELLING.LOOKUP_NCL.PRACTICE_REFERENCE_FINAL
-    ) b ON lung.PCN_Code = b.PCN_CODE
+        SELECT DISTINCT 
+            PCN_NAME,
+            PCN_CODE,
+            BOROUGH, 
+        FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+    ) b ON lung.PCN_CODE = b.PCN_CODE
     GROUP BY
-        PCN_NAME,
+        PCN,
         BOROUGH,
         COHORT_DESCRIPTION,
         DENOMINATOR_NAME,
@@ -105,4 +116,4 @@ SELECT * FROM (
     SELECT * FROM gp_gran
     UNION ALL
     SELECT * FROM lung_pcn
-) t
+) t;
