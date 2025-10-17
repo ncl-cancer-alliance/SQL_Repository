@@ -1,0 +1,51 @@
+create or replace dynamic table DEV__MODELLING.FINGERTIPS.INDICATOR_DATA_GP(
+	INDICATOR_ID,
+	INDICATOR_NAME,
+	PRACTICE_CODE,
+	PRACTICE_NAME,
+	PRACTICE_NAME_SHORT,
+	PCN_CODE,
+	PCN_NAME,
+	BOROUGH_NAME,
+	VALUE,
+	VALUE_UNIT,
+	VALUE_TYPE,
+	NUMERATOR,
+	DENOMINATOR,
+	DATE_INDICATOR,
+	DATE_INDICATOR_TYPE,
+	DATE_INDICATOR_RANGE,
+	DATE_INDICATOR_SORTABLE
+) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='GP Practice level Fingertips data (NCL GP Practices only)\nContact: jake.kealey@nhs.net'
+ as
+
+SELECT
+    iaa.INDICATOR_ID,
+    iaa.INDICATOR_NAME,
+    iaa.AREA_CODE AS PRACTICE_CODE,
+    gp_ref.PRACTICE_NAME,
+    gp_ref.PRACTICE_NAME_SHORT,
+    gp_ref.PCN_CODE,
+    gp_ref.PCN_NAME,
+    gp_ref.BOROUGH AS BOROUGH_NAME,
+    iaa.VALUE,
+    iaa.VALUE_UNIT,
+    iaa.VALUE_TYPE,
+    iaa.NUMERATOR,
+    iaa.DENOMINATOR,
+    iaa.DATE_INDICATOR,
+    iaa.DATE_INDICATOR_TYPE,
+    iaa.DATE_INDICATOR_RANGE,
+    iaa.DATE_INDICATOR_SORTABLE
+
+FROM DEV__MODELLING.FINGERTIPS.INDICATOR_DATA_ALL_AREAS iaa
+
+--Join to get NCL-Practice Information
+LEFT JOIN MODELLING.LOOKUP_NCL.GP_PRACTICE gp_ref
+ON iaa.AREA_CODE = gp_ref.PRACTICE_CODE
+
+--Filter to GP data
+WHERE iaa.AREA_ID = 7
+--Filter to NCL data
+AND gp_ref.PRACTICE_CODE IS NOT NULL;
