@@ -47,7 +47,7 @@ SELECT
 FROM DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY cwt
 
 WHERE CANCER_TYPE = 'Radiotherapy'
-AND STANDARD = '31 DAY'
+AND STANDARD = '31 Day'
 AND ROW_POPULATION_TYPE = 'Provider'
 --Filter out RFL and NMUH as they are included seperately below in order to split them post merger
 AND ORGANISATION_CODE NOT IN ('RAL', 'RAP')
