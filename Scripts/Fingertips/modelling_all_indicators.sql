@@ -69,5 +69,5 @@ AND cf.DATE_UPDATED_LOCAL = iul.DATE_UPDATED_LOCAL
 AND iul.IS_LATEST = True
 
 --Filter to remove double England data
-WHERE "Area Code" != "Parent Code"
+WHERE "Area Code" != COALESCE("Parent Code", '');
 ;
