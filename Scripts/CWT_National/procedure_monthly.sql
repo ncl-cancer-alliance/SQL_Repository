@@ -50,8 +50,8 @@ base_query AS (
         "ReportDate" AS DATE_PERIOD,
         CASE 
             WHEN MONTH("ReportDate") < 4 
-            THEN CONCAT(YEAR("ReportDate") - 1, ''-'', YEAR("ReportDate") - 2000)
-            ELSE CONCAT(YEAR("ReportDate"), ''-'', YEAR("ReportDate") - 1999)
+            THEN CONCAT(YEAR("ReportDate") - 1, ''/'', YEAR("ReportDate") - 2000)
+            ELSE CONCAT(YEAR("ReportDate"), ''/'', YEAR("ReportDate") - 1999)
         END AS FIN_YEAR,
     
         CASE 
