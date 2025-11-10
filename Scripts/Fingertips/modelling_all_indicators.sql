@@ -10,6 +10,14 @@ create or replace dynamic table DEV__MODELLING.FINGERTIPS.INDICATOR_DATA_ALL_ARE
 	VALUE_TYPE,
 	NUMERATOR,
 	DENOMINATOR,
+    VALUE_CI_LOWER_95,
+    VALUE_CI_UPPER_95,
+    VALUE_CI_LOWER_99,
+    VALUE_CI_UPPER_99,
+	SEX,
+	AGE,
+	CATEGORY_TYPE,
+	CATEGORY,
 	DATE_INDICATOR,
 	DATE_INDICATOR_TYPE,
 	DATE_INDICATOR_RANGE,
@@ -30,6 +38,14 @@ SELECT
     mi."Value type" AS VALUE_TYPE,
     cf."Count" AS NUMERATOR,
     cf."Denominator" AS DENOMINATOR,
+    cf."Lower CI 95.0 limit" AS VALUE_CI_LOWER_95,
+    cf."Upper CI 95.0 limit" AS VALUE_CI_UPPER_95,
+    cf."Lower CI 99.8 limit" AS VALUE_CI_LOWER_99,
+    cf."Upper CI 99.8 limit" AS VALUE_CI_UPPER_99,
+    cf."Sex" AS SEX,
+    cf."Age" AS AGE,
+    cf."Category Type" AS CATEGORY_TYPE,
+    cf."Category" AS CATEGORY,
     cf."Time period" AS DATE_INDICATOR,
     mi."Year type" AS DATE_INDICATOR_TYPE,
     cf."Time period range" AS DATE_INDICATOR_RANGE,
@@ -49,5 +65,9 @@ ON cf.AREA_ID = ma.AREA_ID
 INNER JOIN DATA_LAKE__NCL.FINGERTIPS.INDICATOR_UPDATE_LOG iul
 ON cf."Indicator ID" = iul.INDICATOR_ID
 AND cf.AREA_ID = iul.AREA_ID
-AND cf.DATE_UPDATED_LOCAL = iul.DATE_UPDATED_LOCAL
-AND iul.IS_LATEST = True;
+AND cf._TIMESTAMP = iul._TIMESTAMP
+AND iul.IS_LATEST = True
+
+--Filter to remove double England data
+WHERE "Area Code" != COALESCE("Parent Code", '');
+;
