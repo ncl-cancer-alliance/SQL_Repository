@@ -1,6 +1,6 @@
 CREATE OR REPLACE VIEW DEV__MODELLING.CANCER__CWT_NATIONAL.RANKING__BY_CANCER_ALLIANCE
 COMMENT = 'Dataset to rank Cancer Alliances against the FDS, 31 Day, and 62 Day cancer performance metrics.\nContact: jake.kealey@nhs.net'
-AS;
+AS
 
 --CTE to get main columns of interest and limit data to 
 WITH BASE_PER AS (
