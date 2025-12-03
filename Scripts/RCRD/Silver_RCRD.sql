@@ -219,7 +219,7 @@ SELECT
     a."dmSubIcbOfRegistration" AS DMSUBICBOFREGISTRATION,
     a."dmIcbCommissioner" AS DMICBCOMMISSIONER,
     a."dmSubIcbCommissioner" AS DMSUBICBCOMMISSIONER,
-    a."Snapshot" AS 'SNAPSHOT',
+    a."Snapshot" AS SNAPSHOT,
     a."dmicImportLogId" AS DMICIMPORTLOGID,
     a."dmicDateAdded" AS DMICDATEADDED,
     GETDATE() AS DATETIME_RUN
