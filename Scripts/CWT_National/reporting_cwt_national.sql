@@ -1,4 +1,4 @@
--- This pulls the most recent 4 financial years ofdata from the CWT National Monthly Modelling table
+-- This pulls the most recent 4 financial years of data from the CWT National Monthly Modelling table
 -- Contact: eric.pinto@nhs.net
 
 create or replace dynamic table DEV__REPORTING.CANCER__CWT_SUMMARY_REPORTS.CWT_NATIONAL_DASHBOARD(
@@ -52,8 +52,8 @@ create or replace dynamic table DEV__REPORTING.CANCER__CWT_SUMMARY_REPORTS.CWT_N
 	D62_DAYS_77_TO_90,
 	D62_DAYS_91_TO_104,
 	D62_DAYS_MORE_THAN_104
-) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
- COMMENT='Dynamic table which select most recent 4 financial years of data.'
+) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Dynamic table which select most recent 4 years of data.'
  as
  
 SELECT 
@@ -125,4 +125,5 @@ WHERE FIN_YEAR >= (
 -- 'All Cancers' and 'Combined' removed to get rid of duplicated data
 AND CANCER_TYPE <> 'All Cancers'
 AND CANCER_PATHWAY NOT IN ('Combined', 'Rare Cancer')
+AND ORGANISATION_NAME_SHORT NOT LIKE ('%Commissioning%')
 ;

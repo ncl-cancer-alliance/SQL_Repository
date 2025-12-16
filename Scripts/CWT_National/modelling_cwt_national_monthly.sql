@@ -1,11 +1,62 @@
-CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY
-TARGET_LAG = '1 day'
-WAREHOUSE = 'NCL_ANALYTICS_XS'
-COMMENT = 'Ready to use version of the National CWT data.\nContact: jake.kealey@nhs.net'
-AS
-
 --Description: Cleaned dataset for the CWT National level data
 --Author: Jake Kealey
+
+--CTE for Source data. 
+--Source data is pulled by unioning the Comm (GP Registered) and Prov (Provider) tables
+
+create or replace dynamic table DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY(
+	ROW_POPULATION_TYPE,
+	DATE_PERIOD,
+	FIN_YEAR,
+	FIN_MONTH_NUMBER,
+	FIN_MONTH_NAME,
+	ORGANISATION_TYPE,
+	ORGANISATION_CODE,
+	ORGANISATION_NAME,
+	ORGANISATION_NAME_SHORT,
+	ORGANISATION_ICB_CODE,
+	ORGANISATION_ICB_NAME,
+	ORGANISATION_REGION_CODE,
+	ORGANISATION_REGION_NAME,
+	CANCER_ALLIANCE,
+	RADIOTHERAPY_NETWORK,
+	STANDARD,
+	CANCER_TYPE,
+	CANCER_TYPE_SUBCATEGORY,
+	CANCER_PATHWAY,
+	CANCER_TYPE_GROUP,
+	FDS_PATHWAY,
+	NO_PATIENTS,
+	NO_COMPLIANT,
+	NO_BREACHES,
+	STANDARD_PERFORMANCE,
+	TARGET,
+	TWO_WEEK_WAIT_DAYS_WITHIN_14,
+	TWO_WEEK_WAIT_DAYS_15_TO_16,
+	TWO_WEEK_WAIT_DAYS_17_TO_21,
+	TWO_WEEK_WAIT_DAYS_22_TO_28,
+	TWO_WEEK_WAIT_DAYS_MORE_THAN_28,
+	FDS_DAYS_WITHIN_14,
+	FDS_DAYS_15_TO_28,
+	FDS_DAYS_29_TO_42,
+	FDS_DAYS_43_TO_62,
+	FDS_DAYS_MORE_THAN_62,
+	D31_DAYS_WITHIN_31,
+	D31_DAYS_32_TO_38,
+	D31_DAYS_39_TO_48,
+	D31_DAYS_49_TO_62,
+	D31_DAYS_MORE_THAN_62,
+	D62_DAYS_WITHIN_31,
+	D62_DAYS_32_TO_38,
+	D62_DAYS_39_TO_48,
+	D62_DAYS_49_TO_62,
+	D62_DAYS_63_TO_76,
+	D62_DAYS_77_TO_90,
+	D62_DAYS_91_TO_104,
+	D62_DAYS_MORE_THAN_104
+) target_lag = '1 day' refresh_mode = AUTO initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Ready to use version of the National CWT data.\nContact: jake.kealey@nhs.net'
+ as
 
 --CTE for Source data. 
 --Source data is pulled by unioning the Comm (GP Registered) and Prov (Provider) tables
@@ -289,8 +340,9 @@ base_query AS (
 
     --Join to get cleaned targets for standards
     LEFT JOIN DEV__MODELLING.CANCER__REF.CWT_STANDARD_TARGETS ref_tar
-    ON ref_tar.FIN_YEAR = FIN_YEAR_BASE
-    AND ref_tar.STANDARD = STANDARD_BASE
+    ON LEFT(ref_tar.FIN_YEAR,4) = LEFT(FIN_YEAR_BASE,4)
+    AND RIGHT(ref_tar.FIN_YEAR,2) = RIGHT(FIN_YEAR_BASE,2)
+    AND ref_tar.STANDARD = STANDARD_BASE 
     
     --Filter to remove pre-Oct-23 split in admitted and non-admitted patients
     WHERE CARE_SETTING NOT IN ('ADMITTED', 'NON-ADMITTED')
