@@ -1,23 +1,22 @@
 -- Dynamic table to prepare FIT data for use in the Primary Care Dashboard.
 -- Contact: eric.pinto@nhs.net
 
-CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__EMIS__FIT(
-    PRACTICE_CODE,
-    PRACTICE_NAME,
-    DEPRIVATION_QUINTILE,
-    PCN_NAME,
-    BOROUGH,
+create or replace dynamic table DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__EMIS__FIT(
+	PRACTICE_CODE,
+	PRACTICE_NAME,
+	DEPRIVATION_QUINTILE,
+	PCN_NAME,
+	BOROUGH,
 	POPULATION_COUNT,
 	PARENT_COUNT,
-    DATE_FULL,
-    TIME_PERIOD,
-    YEAR_QUARTER_SORT,
-    DATE_TYPE, 
-    IS_MAX_DATE,
-	"TIMESTAMP"
-
-) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
- COMMENT='Dynamic table to prepare data for use in the Primary Care Dashboard.'
+	DATE_FULL,
+	TIME_PERIOD,
+	YEAR_QUARTER_SORT,
+	DATE_TYPE,
+	IS_MAX_DATE,
+	TIMESTAMP
+) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Dynamic table to prepare FIT data for use in the Primary Care Dashboard.\n\nContact: eric.pinto@nhs.net'
  as
 
  SELECT
@@ -28,10 +27,6 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CA
     b.BOROUGH,
     POPULATION_COUNT,
     PARENT_COUNT,
---    MALES,
---    FEMALES,
---    EXCLUDED,
---    STATUS,
     DATE_FULL,
     
     -- Time period label
@@ -81,6 +76,6 @@ LEFT JOIN (
     FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
 ) b ON a.CDB = b.PRACTICE_CODE
 
-LEFT JOIN DEV__MODELLING.CANCER__REF.PRACTICE_IMD gp_imd
+LEFT JOIN MODELLING.LOOKUP_NCL.IMD_PRACTICE gp_imd
 ON a.CDB = gp_imd.PRACTICE_CODE
 AND gp_imd.DATE_INDICATOR = 2019;
