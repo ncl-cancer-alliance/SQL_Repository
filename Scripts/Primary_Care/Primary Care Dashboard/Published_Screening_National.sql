@@ -1,7 +1,7 @@
 -- View to provide Screening Benchmarking. This table combines aggregated Borough and NCL level data with National level data.
 -- Contact: eric.pinto@nhs.net
 
-CREATE OR REPLACE VIEW DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__SCREENING__BENCHMARKING(
+create or replace view DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__SCREENING__BENCHMARKING(
 	REGION_NAME,
 	PROGRAMME,
 	DATE_FULL,
@@ -15,7 +15,7 @@ CREATE OR REPLACE VIEW DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__PRIMARY_C
 	IS_MAX_DATE,
 	REGION_ORDER
 ) COMMENT='VIEW that pulls Benchmarking Screening Data for use in PBI Primary Care Dashboard. Query to pull only data from Latest Screening Date minus 3 Years'
-AS
+ as
 
 SELECT 
 *  

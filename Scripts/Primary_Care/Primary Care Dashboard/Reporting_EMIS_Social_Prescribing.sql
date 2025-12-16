@@ -1,11 +1,12 @@
 -- Dynamic table to prepare Social Prescribing data for use in the Primary Care Dashboard.
 -- Contact: eric.pinto@nhs.net
 
-CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__EMIS__SOCIAL_PRESCRIBING(
-    
-    INDICATOR_ID,
+create or replace dynamic table DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CANCER__EMIS__SOCIAL_PRESCRIBING(
+	INDICATOR_ID,
 	INDICATOR_NAME,
-	GP_PRACTICE_CODE,
+	AREA_TYPE,
+	AREA_NAME,
+	AREA_CODE,
 	GP_PRACTICE_DESC,
 	PCN_CODE,
 	PCN_NAME,
@@ -19,11 +20,13 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__REPORTING.CANCER__PRIMARY_CARE_DASHBOARD.CA
 	DATE_INDICATOR_TYPE,
 	DATE_INDICATOR_RANGE,
 	DATE_INDICATOR_SORTABLE,
-    IS_MAX_DATE,
-    MAX_DATE
-    
-    ) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
- COMMENT='Dynamic table to prepare Social Prescribing data for use in the Primary Care Dashboard.'
+	IS_NCL,
+	IS_LONDON,
+	IS_ENGLAND,
+	IS_MAX_DATE,
+	MAX_DATE
+) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Dynamic table to prepare Social Prescribing data for use in the Primary Care Dashboard.\n\nContact: eric.pinto@nhs.net'
  as
 
 WITH ORIGINAL AS (
@@ -31,7 +34,9 @@ WITH ORIGINAL AS (
     SELECT
         TO_NUMBER(NULL) AS INDICATOR_ID,
         'No. of Social Prescribing referrals made within the last 12 months' AS INDICATOR_NAME,
-        b.PRACTICE_CODE AS GP_PRACTICE_CODE,
+        NULL AS AREA_TYPE,
+        NULL AS AREA_NAME,
+        b.PRACTICE_CODE AS AREA_CODE,
         b.PRACTICE_NAME AS GP_PRACTICE_DESC,
         PCN_CODE,
         PCN_NAME,
@@ -45,6 +50,9 @@ WITH ORIGINAL AS (
         'Calendar' AS DATE_INDICATOR_TYPE,
         '1m' AS DATE_INDICATOR_RANGE,
         TO_NUMBER(TO_CHAR(DATE_FULL, 'YYYYMM') || '00') AS DATE_INDICATOR_SORTABLE,
+        1 AS IS_NCL,
+	    NULL AS IS_LONDON,
+	    NULL AS IS_ENGLAND,
 
         -- Boolean to get max date
         CASE 
