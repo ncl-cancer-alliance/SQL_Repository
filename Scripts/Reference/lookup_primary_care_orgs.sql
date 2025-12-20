@@ -18,25 +18,7 @@ Notes:
 Author: Graham Roberts
 Run time: < 30 seconds
 
-Source Tables:
-
-Dictionary Tables (shared):
-- Dictionary.dbo.Organisation
-- Dictionary.dbo.OrganisationMatrixPractice
-- Dictionary.dbo.Postcode
-- Dictionary.dbo.OrganisationStatus
-- Dictionary.dbo.OrganisationType
-- Dictionary.dbo.OutputArea  (staged locally as LOOKUP_OUTPUTAREA)
-
-Modelling Tables (local):
-- MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011
-- MODELLING.LOOKUP_NCL.SR_PCN_BOROUGH_LOOKUP
-- MODELLING.LOOKUP_NCL.DIM_PRACTICE_DEPRIVATION
-
-Target Output Table:
-- DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS
 */
-
 
 /* 
 Step 1: Stage OutputArea locally 
@@ -86,7 +68,7 @@ CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_O
     PARENT_ORG_TYPE VARCHAR(50),
     DATETIME_RUN DATETIME
 )
-target_lag = '7 Days'
+target_lag = '1 DAY'
 refresh_mode = FULL
 warehouse = NCL_ANALYTICS_XS
 AS

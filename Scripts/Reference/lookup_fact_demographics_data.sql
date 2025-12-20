@@ -1,6 +1,6 @@
 /*
 Script: LOOKUP_FACT_DEMOGRAPHICS_DATA
-Version: 1.2
+Version: 1.2.1
 
 Description: 
 Stored procedure to generate a complete list of patients and their demographics that have been or currently are resident within NCL LSOAs.  
@@ -14,46 +14,13 @@ Notes:
 Author: Graham Roberts  
 Run time: TBC  
 
-Source Tables:
-
-Dictionary Tables (shared):
- - Dictionary.dbo.LSOA_NCL
- - Dictionary.dbo.IMD_LSOA
- - Dictionary.dbo.EthnicityLookup
- - Dictionary.dbo.OrganisationLookup
- - Dictionary.dbo.Ethnicity
- - Dictionary.dbo.Ethnicity2
- - Dictionary.dbo.Organisation
- - Dictionary.dbo.Postcode
- - Dictionary.dbo.OrganisationHierarchyPractice
- - Dictionary.dbo.OutputArea
- - Dictionary.dbo.Gender
-
-Activity Tables:
- - DATA_LAKE.FACT_PATIENT."FactPractice"
- - DATA_LAKE.FACT_PATIENT."FactProfile"
- - DATA_LAKE.FACT_PATIENT."FactResidence"
- - DATA_LAKE.FACT_PATIENT."FactCondition"
- - DATA_LAKE.FACT_PATIENT."FactLifetimeCondition"
- - DATA_LAKE.FACT_PATIENT."DimConditionType"
- - DATA_LAKE.FACT_PATIENT."DimLifetimeConditionType"
- - DATA_LAKE.DEATHS."Deaths"
-
-Modelling Tables:
- - MODELLING.LOOKUP_NCL.SR_PCN_BOROUGH_LOOKUP
- - MODELLING.LOOKUP_NCL.IMD_2019
- - MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011
- - DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS
-
-Target Output Tables:
- - DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA
 */
 
 CREATE OR REPLACE PROCEDURE DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA()
-RETURNS STRING
+RETURNS VARCHAR
 LANGUAGE SQL
-AS
-$$
+EXECUTE AS OWNER
+AS 
 BEGIN
 
 /* ================================
@@ -85,7 +52,7 @@ CREATE OR REPLACE TEMPORARY TABLE DEV__MODELLING.CANCER__REF.GP_ETH AS
     LEFT JOIN "Dictionary"."dbo"."Ethnicity2" e2 
         ON f."SK_EthnicityID" = e2."SK_EthnicityID"
     WHERE f."SK_DataSourceID" = 5
-      AND e."SK_EthnicityID" <> 1;  -- Exclude 'Unknown'
+      AND e."SK_EthnicityID" <> 1;  -- Exclude Unknown
 
 /* ======================================
    Step 2: Identify list of all NCL residents accross FACT Practice, Profile, and Residence databases.
@@ -110,7 +77,11 @@ RankedPatientsRes AS (
 )
 SELECT DISTINCT 
     fpro."SK_PatientID",
-    CASE WHEN fpra."PeriodEnd" = '9999-12-31' THEN 'Y' ELSE 'N' END AS "IsCurrent",
+CASE 
+    WHEN CAST(fpra."PeriodEnd" AS DATE) = '9999-12-31'
+    THEN 'Y'
+    ELSE 'N'
+END AS "IsCurrent",
     g."GenderCode",
     g."Gender",
     g."GenderCode2",
@@ -141,19 +112,20 @@ SELECT DISTINCT
     gp.ORGANISATION_IMD_QUINTILE,
     gp.PCN_CODE,
     gp.PCN_NAME,
-    gp.ICB_CODE,
-    gp.ICB_NAME,
+    gp.PARENT_ORG_CODE,
+    gp.PARENT_ORG_NAME,
     gp.BOROUGH_NCL,
     oa."OACode",
     OA."OAName",
-    n."Neighbourhood",
-    imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE,
+    n.NEIGHBOURHOOD_CODE,
+    n.NEIGHBOURHOOD_NAME,
+    imd.IMD25_DECILE,
     CASE 
-        WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('1','2') THEN '1 - Most Deprived'
-        WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('3','4') THEN '2'
-        WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('5','6') THEN '3'
-        WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('7','8') THEN '4'
-        WHEN imd.INDEX_OF_MULTIPLE_DEPRIVATION_DECILE IN ('9','10') THEN '5 - Least Deprived'
+        WHEN imd.IMD25_DECILE IN ('1','2') THEN '1 - Most Deprived'
+        WHEN imd.IMD25_DECILE IN ('3','4') THEN '2'
+        WHEN imd.IMD25_DECILE IN ('5','6') THEN '3'
+        WHEN imd.IMD25_DECILE IN ('7','8') THEN '4'
+        WHEN imd.IMD25_DECILE IN ('9','10') THEN '5 - Least Deprived'
         ELSE NULL
     END AS "IMD_Quintile",
      GETDATE() AS "LoadDate"
@@ -164,14 +136,14 @@ LEFT JOIN (SELECT * FROM RankedPatientsRes WHERE rn = 1) fres
        ON fpro."SK_PatientID" = fres."SK_PatientID"
 LEFT JOIN DEV__MODELLING.CANCER__REF.GP_ETH gp_eth 
        ON fpro."SK_PatientID" = gp_eth."SK_PatientID"
-LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS gp
+LEFT JOIN MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS gp
        ON fpra."SK_OrganisationID" = gp.SK_ORGANISATION_CODE
 LEFT JOIN "Dictionary"."dbo"."OutputArea" oa 
        ON fres."SK_OutputAreaID" = oa."SK_OutputAreaID"
-LEFT JOIN MODELLING.LOOKUP_NCL.IMD_2019 imd 
-       ON oa."OACode" = imd.LSOA_CODE_2011
-LEFT JOIN MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011 n
-       ON oa."OACode" = n."LSOA11CD"
+LEFT JOIN MODELLING.LOOKUP_NCL.IMD_2025 imd
+       ON oa."OACode" = imd.LSOA_CODE_2021
+LEFT JOIN MODELLING.LOOKUP_NCL.NCL_NEIGHBOURHOOD_LSOA_2021_LATEST n
+       ON oa."OACode" = n.LSOA_2021_CODE
 LEFT JOIN "Dictionary"."dbo"."Gender" g
        ON fpro."SK_GenderID" = g."SK_GenderID"
 LEFT JOIN DATA_LAKE.DEATHS."Deaths" d 
@@ -191,6 +163,7 @@ CREATE OR REPLACE TEMPORARY TABLE DEV__MODELLING.CANCER__REF.QOFLTC AS
     JOIN DATA_LAKE.FACT_PATIENT."DimConditionType" ct 
          ON fc."SK_ConditionTypeID" = ct."SK_ConditionTypeID"
     WHERE ct."SK_ConditionTypeID" = 247  -- QoF Obesity
+    and fc."Value" >= 30 -- Classified as Obese
     GROUP BY fc."SK_PatientID", ct."ConditionType"
 
     UNION ALL
@@ -261,14 +234,15 @@ CREATE OR REPLACE TABLE DEV__MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA
     REG_GP_PRACTICE_IMD_QUINTILE INT,
     REG_PCN_CODE VARCHAR(6),
     REG_PCN_NAME VARCHAR(255),
-    REG_ICB_CODE VARCHAR(9),
-    REG_ICB_NAME VARCHAR(255),
+    REG_PARENT_ORG_CODE VARCHAR(9),
+    REG_PARENT_ORG_NAME VARCHAR(255),
     REG_BOROUGH_NCL VARCHAR(10),
     RESIDENCE_LSOA_CODE VARCHAR(9),
     RESIDENCE_LSOA_NAME VARCHAR(100),
+    RESIDENCE_NEIGHBOURHOOD_CODE VARCHAR(9),
     RESIDENCE_NEIGHBOURHOOD VARCHAR(100),
-    RESIDENCE_LSOA_IMD_DECILE VARCHAR(1),
-    RESIDENCE_LSOA_IMD_QUINTILE VARCHAR(1),
+    RESIDENCE_LSOA_IMD_DECILE VARCHAR(2),
+    RESIDENCE_LSOA_IMD_QUINTILE VARCHAR(25),
     DATETIME_RUN DATETIME,
     QOF_ASTHMA INT, 
     QOF_ATRIAL_FIBRILLATION INT,
@@ -302,4 +276,3 @@ DROP TABLE IF EXISTS DEV__MODELLING.CANCER__REF.QOFLTC;
 DROP TABLE IF EXISTS DEV__MODELLING.CANCER__REF.NCL_RESIDENTS_LTC;
 
 END;
-$$;

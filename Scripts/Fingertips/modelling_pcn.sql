@@ -1,0 +1,61 @@
+create or replace dynamic table DEV__MODELLING.FINGERTIPS.INDICATOR_DATA_PCN(
+	INDICATOR_ID,
+	INDICATOR_NAME,
+    PCN_VERSION,
+	PCN_CODE,
+	PCN_NAME,
+	BOROUGH_NAME,
+	VALUE,
+	VALUE_UNIT,
+	VALUE_TYPE,
+	NUMERATOR,
+	DENOMINATOR,
+    VALUE_CI_LOWER_95,
+    VALUE_CI_UPPER_95,
+    VALUE_CI_LOWER_99,
+    VALUE_CI_UPPER_99,
+	DATE_INDICATOR,
+	DATE_INDICATOR_TYPE,
+	DATE_INDICATOR_RANGE,
+	DATE_INDICATOR_SORTABLE
+) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Dynamic table to format NCL PCN Fingertips Data \nContact: jake.kealey@nhs.net'
+ as
+
+SELECT
+    iaa.INDICATOR_ID,
+    iaa.INDICATOR_NAME,
+    iaa.AREA_TYPE AS PCN_VERSION,
+    iaa.AREA_CODE AS PCN_CODE,
+    gp_ref.PCN_NAME,
+    gp_ref.BOROUGH AS BOROUGH_NAME,
+    iaa.VALUE,
+    iaa.VALUE_UNIT,
+    iaa.VALUE_TYPE,
+    iaa.NUMERATOR,
+    iaa.DENOMINATOR,
+    iaa.VALUE_CI_LOWER_95,
+    iaa.VALUE_CI_UPPER_95,
+    iaa.VALUE_CI_LOWER_99,
+    iaa.VALUE_CI_UPPER_99,
+    iaa.DATE_INDICATOR,
+    iaa.DATE_INDICATOR_TYPE,
+    iaa.DATE_INDICATOR_RANGE,
+    iaa.DATE_INDICATOR_SORTABLE
+
+FROM DEV__MODELLING.FINGERTIPS.INDICATOR_DATA_ALL_AREAS iaa
+
+--Join to get NCL-PCN Information
+LEFT JOIN (
+    SELECT DISTINCT
+        PCN_CODE,
+        PCN_NAME,
+        BOROUGH
+    FROM MODELLING.LOOKUP_NCL.GP_PRACTICE
+) gp_ref
+ON iaa.AREA_CODE = gp_ref.PCN_CODE
+
+--Filter to PCN data
+WHERE iaa.AREA_ID = 204
+--Filter to NCL data
+AND gp_ref.PCN_CODE IS NOT NULL;
