@@ -1,0 +1,121 @@
+create or replace view REPORTING.CANCER__ARG.CWT_SUMMARY_BY_CANCER_TYPE(
+	STANDARD,
+	DATE,
+	FIN_YEAR,
+	FIN_MONTH_NAME,
+	PROVIDER_CODE,
+	PROVIDER_NAME,
+	PROVIDER_SHORTHAND,
+	CANCER_TYPE,
+	CANCER_TYPE_SHORT,
+	ACTIVITY_TOTAL,
+	ACTIVITY_COMPLIANT,
+	ACTIVITY_BREACHES,
+	ASPIRATION_BREAST_AND_SKIN
+) COMMENT='Table to provide a summary of CWT performance by cancer type.\nContact: jake.kealey@nhs.net'
+ as
+
+WITH BASE_PERFORMANCE AS (
+    --FDS
+    SELECT 
+        STANDARD,
+        DATE,
+        FIN_YEAR,
+        FIN_MONTH_NAME,
+        FDS_PROVIDER_CODE AS PROVIDER_CODE,
+        FDS_PROVIDER_NAME AS PROVIDER_NAME,
+        CANCER_REPORT_CATEGORY_SHORT AS CANCER_TYPE,
+        SUM(NO_PATIENTS) AS ACTIVITY_TOTAL,
+        SUM(NO_PATIENTS - BREACHES) AS ACTIVITY_COMPLIANT,
+        SUM(BREACHES) AS ACTIVITY_BREACHES
+    FROM MODELLING.CANCER__CWT_ALLIANCE.TRUST__FDS
+    GROUP BY ALL
+    
+    UNION ALL
+    
+    --31 Day
+    SELECT 
+        STANDARD,
+        DATE,
+        FIN_YEAR,
+        FIN_MONTH_NAME,
+        PROVIDER_CODE AS PROVIDER_CODE,
+        PROVIDER_NAME AS PROVIDER_NAME,
+        CANCER_REPORT_CATEGORY,
+        SUM(NO_TREATED) AS ACTIVITY_TOTAL,
+        SUM(NO_TREATED - BREACHES) AS ACTIVITY_COMPLIANT,
+        SUM(BREACHES) AS ACTIVITY_BREACHES,
+    FROM MODELLING.CANCER__CWT_ALLIANCE.TRUST__31_DAY
+        
+        -- filter out activty not included in performance - BG 19/12/25
+        WHERE           -- First treatment: Event Type IN (01, 07, 12) AND Modality <> 98
+         ( (TREATMENT_STAGE = 'First Treatment'
+           AND TREATMENT_MODALITY <> 'All treatment declined')
+          OR
+          -- Subsequent: Event Type IN (02–06, 08–11) AND Modality NOT IN (07, 08, 09, 98)
+          (TREATMENT_STAGE = 'Subsequent'
+           AND TREATMENT_MODALITY NOT IN (
+                'Specialist Palliative Care',
+                'Active Monitoring (excluding Non-Specialist Palliative Care)',
+                'Non-Specialist Palliative Care (excluding Active Monitoring)',
+                'All treatment declined'
+           )))  
+           --end additions - BG 19/12/25
+           
+    GROUP BY ALL
+    
+    UNION ALL
+    
+    --62 Day
+    SELECT 
+        STANDARD,
+        DATE,
+        FIN_YEAR,
+        FIN_MONTH_NAME,
+        ACCOUNTABLE_62_DAY_PROVIDER_CODE AS PROVIDER_CODE,
+        ACCOUNTABLE_62_DAY_PROVIDER_NAME AS PROVIDER_NAME,
+        CASE CANCER_REPORT_CATEGORY_LG
+            WHEN '' THEN CANCER_REPORT_CATEGORY
+            ELSE CANCER_REPORT_CATEGORY_LG
+        END AS CANCER_TYPE,
+        SUM(NO_PATIENTS) AS ACTIVITY_TOTAL,
+        SUM(NO_PATIENTS - BREACHES) AS ACTIVITY_COMPLIANT,
+        SUM(BREACHES) AS ACTIVITY_BREACHES
+    FROM MODELLING.CANCER__CWT_ALLIANCE.TRUST__62_DAY
+    GROUP BY ALL
+)
+
+SELECT
+    bp.STANDARD,
+    bp.DATE,
+    bp.FIN_YEAR,
+    bp.FIN_MONTH_NAME,
+    org.PROVIDER_CODE,
+    org.PROVIDER_NAME,
+    org.PROVIDER_SHORTHAND,
+    COALESCE(ctl.CANCER_TYPE, bp.CANCER_TYPE) AS CANCER_TYPE,
+    COALESCE(ctl.CANCER_TYPE_SHORT, bp.CANCER_TYPE) AS CANCER_TYPE_SHORT,
+    SUM(bp.ACTIVITY_TOTAL) AS ACTIVITY_TOTAL,
+    SUM(bp.ACTIVITY_COMPLIANT) AS ACTIVITY_COMPLIANT,
+    SUM(bp.ACTIVITY_BREACHES) AS ACTIVITY_BREACHES,
+    tar.TARGET AS ASPIRATION_BREAST_AND_SKIN
+    
+FROM BASE_PERFORMANCE bp
+
+--Join to align CANCER_TYPE values to other datasets
+LEFT JOIN MODELLING.CANCER__REF.CANCER_TYPE_LOOKUP ctl
+ON bp.CANCER_TYPE = ctl.CANCER_TYPE_SOURCE
+
+--Join to get Trust shorthand names and combine NMUH and RFL
+LEFT JOIN MODELLING.LOOKUP_NCL.NCL_PROVIDER org
+ON bp.PROVIDER_CODE = org.REPORTING_CODE
+
+--Join to get FDS Aspiration target for Breast and Skin
+LEFT JOIN MODELLING.CANCER__REF.CWT_STANDARD_TARGETS tar
+ON ctl.CANCER_TYPE IN ('Breast', 'Skin')
+AND bp.STANDARD = 'FDS'
+AND tar.STANDARD = 'FDS Aspiration (Breast and Skin)'
+
+GROUP BY ALL
+
+ORDER BY DATE, PROVIDER_CODE, STANDARD, CANCER_TYPE;
