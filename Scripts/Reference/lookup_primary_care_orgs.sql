@@ -109,7 +109,7 @@ SELECT
     p2."Postcode_single_space_e_Gif",
 
     -- Neighbourhood & Borough
-    n."Neighbourhood",
+    n.NEIGHBOURHOOD_NAME AS "Neighbourhood_NCL",
     gp_ref.BOROUGH AS "Borough",
 
     -- Region & ICB
@@ -139,12 +139,14 @@ LEFT JOIN "Dictionary"."dbo"."Postcode" p2
     ON c."SK_PostcodeID" = p2."SK_PostcodeID"
 LEFT JOIN "Dictionary"."dbo"."OrganisationStatus" s 
     ON a."SK_OrganisationStatusID" = s."SK_OrganisationStatusID"
-LEFT JOIN MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011 n
-    ON p."LSOA" = n."LSOA11CD"
 LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_OUTPUTAREA l 
     ON p."LSOA" = l."OACode" AND l."CensusYear" = 2011
 LEFT JOIN DEV__MODELLING.CANCER__REF.LOOKUP_OUTPUTAREA m 
     ON p."MSOA" = m."OACode" AND m."CensusYear" = 2011
+LEFT JOIN MODELLING.LOOKUP_NCL.NCL_NEIGHBOURHOOD_LSOA_2021_LATEST n
+    ON l."OACode" = n.LSOA_2021_CODE
+--LEFT JOIN MODELLING.LOOKUP_NCL.NEIGHBOURHOODS_2011 n
+--    ON p."LSOA" = n."LSOA11CD"
 LEFT JOIN (
     SELECT DISTINCT
         PCN_CODE,
