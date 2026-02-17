@@ -13,7 +13,7 @@ Author: Graham Roberts
 
 */
 -- Create or replace the RCRD table with the latest Snapshot in the MODELLING.CANCER__RCRD schema
-create or replace dynamic table DEV__MODELLING.CANCER__RCRD.RCRD(
+create or replace dynamic table MODELLING.CANCER__RCRD.RCRD(
 	SK_PATIENT_ID,
 	DATE_OF_DIAGNOSIS,
 	MONTH_OF_DIAGNOSIS,
@@ -32,7 +32,6 @@ create or replace dynamic table DEV__MODELLING.CANCER__RCRD.RCRD(
 	YEAR_OF_BIRTH,
 	YEARS_SINCE_BIRTH,
 	DATE_OF_DEATH,
-	DATE_OF_DEATH_SOURCE,
 	AGE_AT_DIAGNOSIS,
 	AGE_AT_DIAGNOSIS_GROUP,
 	ETHNICITY_HES_CODE,
@@ -56,7 +55,6 @@ create or replace dynamic table DEV__MODELLING.CANCER__RCRD.RCRD(
 	DIAGNOSIS_SOURCE,
 	GP_PRACTICE_CODE,
 	GP_PRACTICE_NAME,
-	GP_PRACTICE_IMD_QUINTILE,
 	REG_PCN_CODE,
 	REG_PCN_NAME,
 	REG_BOROUGH_NCL_NAME,
@@ -73,7 +71,9 @@ create or replace dynamic table DEV__MODELLING.CANCER__RCRD.RCRD(
 	DMICDATEADDED,
 	DATETIME_RUN
 ) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='Description:\n- Dynamic table to normalise the latest snapshot of RCRD data and brings in additional demographic and geographic data.\n- Includes records apportioned by DSCRO as NCL, so trust and alliance data should mirror what''s in CancerStats2\n\nDate Created: 12/20/2025\nAuthor: Graham Roberts'
  as
+
 SELECT
     a."NHS_NUMBER Pseudo" AS SK_PATIENT_ID,
     CAST(a.DIAGNOSISDATE AS DATE) AS DATE_OF_DIAGNOSIS,  --Stored as DateTime in data lake table, cast for ease of use
@@ -120,34 +120,28 @@ SELECT
 	     WHEN a.GENDER = 2 THEN 'F'
 	     ELSE 'U'
 	END AS GENDER_LETTER,
-	-- Best-available year of birth from FACT/SUS lookups
-    COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')) AS YEAR_OF_BIRTH,
+   TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01') AS YEAR_OF_BIRTH,
 	-- Years since birth if alive and DOB available
     CASE 
-        WHEN (COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')) IS NOT NULL AND COALESCE(d.REG_DATE_OF_DEATH, r.date_of_death) IS NULL) THEN 
-            DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), GETDATE())
+        WHEN (dpd.DATE_OF_BIRTH IS NOT NULL AND dpd.DATE_OF_DEATH IS NULL) THEN 
+            DATEDIFF(YEAR, dpd.DATE_OF_BIRTH, GETDATE())
         ELSE NULL
     END AS YEARS_SINCE_BIRTH,
 	-- Prefer death registry for date of death to whats in the RCRD data lake table
-	CAST(COALESCE(d.REG_DATE_OF_DEATH, r.date_of_death) AS DATE) AS DATE_OF_DEATH,
-	CASE 
-        WHEN d.REG_DATE_OF_DEATH IS NOT NULL THEN 'Death Register'
-	    WHEN r.date_of_death IS NOT NULL THEN 'EMIS'
-	    ELSE NULL
-	END AS DATE_OF_DEATH_SOURCE,
+	dpd.DATE_OF_DEATH,
 	-- Age at diagnosis (fallback logic where age is blank in RCRD dataset)
     CASE 
         WHEN a.AGE IS NOT NULL THEN a.AGE
-        ELSE DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE)
+        ELSE DATEDIFF(YEAR, TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01'), a.DIAGNOSISDATE)
     END AS AGE_AT_DIAGNOSIS,
     -- CancerStats2-style age bands
     CASE 
         WHEN a.AGE IS NULL THEN 
             CASE 
-                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) < 50 THEN '0-49'
-                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 50 AND 59 THEN '50-59'
-                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 60 AND 69 THEN '60-69'
-                WHEN DATEDIFF(YEAR, COALESCE(r.YEAR_OF_BIRTH, TO_DATE(s.YEAR_OF_BIRTH || '-01-01')), a.DIAGNOSISDATE) BETWEEN 70 AND 79 THEN '70-79'
+                WHEN DATEDIFF(YEAR, TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01'), a.DIAGNOSISDATE) < 50 THEN '0-49'
+                WHEN DATEDIFF(YEAR, TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01'), a.DIAGNOSISDATE) BETWEEN 50 AND 59 THEN '50-59'
+                WHEN DATEDIFF(YEAR, TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01'), a.DIAGNOSISDATE) BETWEEN 60 AND 69 THEN '60-69'
+                WHEN DATEDIFF(YEAR, TO_DATE(TO_CHAR(dpd.DATE_OF_BIRTH, 'YYYY') || '-01-01'), a.DIAGNOSISDATE) BETWEEN 70 AND 79 THEN '70-79'
                 ELSE '80+'
             END
         ELSE 
@@ -184,18 +178,20 @@ SELECT
     a.SOURCE AS DIAGNOSIS_SOURCE,
 	-- Registered GP (note: may not align with alliance responsible at time of diagnosis for some records)
     a."dmPracticeCode" AS GP_PRACTICE_CODE,
-    g.ORGANISATION_NAME AS GP_PRACTICE_NAME,
-    g.ORGANISATION_IMD_QUINTILE AS GP_PRACTICE_IMD_QUINTILE,
-    g.PCN_CODE AS REG_PCN_CODE,
-    g.PCN_NAME AS REG_PCN_NAME,
-	g.BOROUGH_NCL AS REG_BOROUGH_NCL_NAME,
+
+    dpd.PRACTICE_NAME AS GP_PRACTICE_NAME,
+    dpd.PCN_CODE AS REG_PCN_CODE,
+    dpd.PCN_NAME AS REG_PCN_NAME,
+	dpd.REGISTERED_BOROUGH AS REG_BOROUGH_NCL_NAME,
+
     -- LSOA and Neighbourhood based on patient postcode of residence, not GP practice.
-    r.RESIDENCE_LSOA_CODE,
-    r.RESIDENCE_LSOA_NAME,
-    CASE WHEN r.RESIDENCE_LSOA_NAME ILIKE 'Barnet %' OR r.RESIDENCE_LSOA_NAME ILIKE 'Enfield %' OR r.RESIDENCE_LSOA_NAME ILIKE 'Camden %'
-    OR r.RESIDENCE_LSOA_NAME ILIKE 'Haringey %' OR r.RESIDENCE_LSOA_NAME ILIKE 'Islington %'
-    THEN SPLIT_PART(r.RESIDENCE_LSOA_NAME, ' ', 1) ELSE NULL END AS RESIDENCE_BOROUGH,
-    r.RESIDENCE_NEIGHBOURHOOD,
+    dpd.RESIDENCE_LSOA_2021_CODE,
+    dpd.RESIDENCE_LSOA_2021_NAME,
+    
+    CASE WHEN dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Barnet %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Enfield %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Camden %'
+    OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Haringey %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Islington %'
+    THEN SPLIT_PART(dpd.RESIDENCE_LSOA_2021_NAME, ' ', 1) ELSE NULL END AS RESIDENCE_BOROUGH,
+    dpd.RESIDENCE_NEIGHBOURHOOD_NAME,
 	a."dmIcbOfRegistration" AS DMICBOFREGISTRATION,
     a."dmSubIcbOfRegistration" AS DMSUBICBOFREGISTRATION,
     a."dmIcbCommissioner" AS DMICBCOMMISSIONER,
@@ -207,9 +203,8 @@ SELECT
 
 FROM DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION a
 
-LEFT JOIN MODELLING.CANCER__REF.LOOKUP_FACT_DEMOGRAPHICS_DATA r ON a."NHS_NUMBER Pseudo" = r.SK_PATIENT_ID
-LEFT JOIN MODELLING.CANCER__REF.SUS_PATIENT_DEMOGRAPHICS s ON a."NHS_NUMBER Pseudo" = s.SK_PATIENT_ID
-LEFT JOIN MODELLING.CANCER__REF.lookup_primary_care_orgs g ON a."dmPracticeCode" = g.ORGANISATION_CODE
+LEFT JOIN REPORTING.COMMISSIONING_REPORTING.DIM_PERSON_DEMOGRAPHICS_BASIC dpd ON a."NHS_NUMBER Pseudo" = dpd.SK_PATIENT_ID
+
 LEFT JOIN (
 	SELECT LEFT(CODE, 3) AS CODE,
 	RCRD_STAGEABLE,
@@ -224,7 +219,6 @@ LEFT JOIN (
     SELECT * FROM MODELLING.CANCER__REF.DIM_CWT_REFERENCE 
     WHERE REFERENCE_CODE = 26) perf ON a.TUMOUR_PERFORMANCESTATUS = perf.code
 LEFT JOIN MODELLING.CANCER__REF.DIM_ORGANISATIONS o ON a.TRUST_CODE = o.code
-LEFT JOIN DATA_LAKE.DEATHS."Deaths" d ON a."NHS_NUMBER Pseudo" = d."Pseudo NHS Number"
 
 -- Handle the duplicate diagnosis coding in the reference table to pull in a single stageable flag for each record.
 WHERE a."Snapshot" = (SELECT MAX("Snapshot") FROM DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION WHERE "Snapshot" != 'cas2505')
