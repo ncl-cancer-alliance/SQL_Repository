@@ -60,6 +60,8 @@ create or replace dynamic table MODELLING.CANCER__RCRD.RCRD(
 	REG_BOROUGH_NCL_NAME,
 	RESIDENCE_LSOA_CODE,
 	RESIDENCE_LSOA_NAME,
+    RESIDENCE_WARD_CODE,
+    RESIDENCE_WARD_NAME,
 	RESIDENCE_BOROUGH,
 	RESIDENCE_NEIGHBOURHOOD,
 	DMICBOFREGISTRATION,
@@ -178,21 +180,23 @@ SELECT
     a.SOURCE AS DIAGNOSIS_SOURCE,
 	-- Registered GP (note: may not align with alliance responsible at time of diagnosis for some records)
     a."dmPracticeCode" AS GP_PRACTICE_CODE,
-
     dpd.PRACTICE_NAME AS GP_PRACTICE_NAME,
     dpd.PCN_CODE AS REG_PCN_CODE,
     dpd.PCN_NAME AS REG_PCN_NAME,
 	dpd.REGISTERED_BOROUGH AS REG_BOROUGH_NCL_NAME,
 
-    -- LSOA and Neighbourhood based on patient postcode of residence, not GP practice.
+    -- LSOA, Ward, and Neighbourhood based on patient postcode of residence, not GP practice.
     dpd.RESIDENCE_LSOA_2021_CODE,
     dpd.RESIDENCE_LSOA_2021_NAME,
-    
+    dpd.RESIDENCE_WARD_2025_CODE AS RES_WARD_CODE,
+    dpd.RESIDENCE_WARD_2025_NAME AS RES_WARD_NAME,
+
     CASE WHEN dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Barnet %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Enfield %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Camden %'
     OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Haringey %' OR dpd.RESIDENCE_LSOA_2021_NAME ILIKE 'Islington %'
     THEN SPLIT_PART(dpd.RESIDENCE_LSOA_2021_NAME, ' ', 1) ELSE NULL END AS RESIDENCE_BOROUGH,
     dpd.RESIDENCE_NEIGHBOURHOOD_NAME,
-	a."dmIcbOfRegistration" AS DMICBOFREGISTRATION,
+	
+    a."dmIcbOfRegistration" AS DMICBOFREGISTRATION,
     a."dmSubIcbOfRegistration" AS DMSUBICBOFREGISTRATION,
     a."dmIcbCommissioner" AS DMICBCOMMISSIONER,
     a."dmSubIcbCommissioner" AS DMSUBICBCOMMISSIONER,
