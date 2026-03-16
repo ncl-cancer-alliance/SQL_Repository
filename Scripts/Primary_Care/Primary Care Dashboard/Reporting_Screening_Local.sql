@@ -59,7 +59,7 @@ WITH gp_gran AS (
     
     LEFT JOIN MODELLING.LOOKUP_NCL.IMD_PRACTICE gp_imd
     ON a.PRACTICE_CODE = gp_imd.PRACTICE_CODE
-    AND gp_imd.DATE_INDICATOR = 2019
+    AND gp_imd.DATE_INDICATOR = 2025
     
     GROUP BY 
         b.PRACTICE_NAME,
