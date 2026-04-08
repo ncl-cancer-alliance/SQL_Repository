@@ -33,21 +33,21 @@ create or replace dynamic table DEV__MODELLING.CANCER__RCRD.RCRD_NATIONAL(
 
 SELECT 
 
-	GEOGRAPHY_TYPE,
-	GEOGRAPHY AS GEOGRAPHY_NAME,
-    TO_DATE("DATE" || '-01') AS "DATE_FULL",
-    CANCER_GROUP,
+	"Geography type" AS GEOGRAPHY_TYPE,
+	"Geography" AS GEOGRAPHY_NAME,
+    TO_DATE("Date" || '-01') AS "DATE_FULL",
+    "Cancer group",
     "Cancer group (broad)" AS CANCER_GROUP_BROAD,
     "Cancer group (detailed)" AS CANCER_GROUP_DETAILED,
-    "METRIC" AS METRIC_NAME,
-    BREAKDOWN AS BREAKDOWN_NAME,
-    DEMOGRAPHIC AS DEMOGRAPHIC_NAME,
+    "Metric" AS METRIC_NAME,
+    "Breakdown" AS BREAKDOWN_NAME,
+    "Demographic" AS DEMOGRAPHIC_NAME,
     "Completeness treatment follow-up" AS COMPLETENESS_TREATMENT_FOLLOWUP,
-    NUMERATOR,
-    DENOMINATOR,
-    STATISTIC,
+    "Numerator",
+    "Denominator",
+    "Statistic",
     "Numerator (12m)" AS NUMERATOR_12M,
     "Denominator (12m)" AS DENOMINATOR_12M,
     "Statistic (12m)" AS STATISTIC_12M
 
-FROM DATA_LAKE__NCL.ANALYST_MANAGED.CANCER__RCRD_NATIONAL;
+FROM DATA_LAKE__NCL.CANCER__RCRD_EVENTS.NATIONAL__RCRD_INC_TRT;
