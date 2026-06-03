@@ -1,6 +1,6 @@
 /*
 Script: DEV__REPORTING.PUBLIC.CANCER__RCRD__LOCAL
-Version: 1.1
+Version: 1.2
 
 Description:
 Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. Also only selecting necessary columns for the RCRD Dashboard. Only including London Data.
@@ -38,7 +38,7 @@ create or replace dynamic table REPORTING.CANCER__RCRD.CANCER__RCRD__LOCAL(
 	GENDER_NAME,
 	AGE_AT_DIAGNOSIS_GROUP,
 	ETHNICITY_CATEGORY,
-	RESIDENCE_LSOA_IMD_QUINTILE,
+	GP_IMD_QUINTILE,
 	ROUTE_TO_DIAGNOSIS,
 	TRUST_NAME,
 	CANCER_ALLIANCE_NAME,
@@ -54,7 +54,7 @@ create or replace dynamic table REPORTING.CANCER__RCRD.CANCER__RCRD__LOCAL(
 	RESIDENCE_NEIGHBOURHOOD,
 	SNAPSHOT
 ) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
- COMMENT='Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. \nOnly selecting necessary columns for the RCRD Dashboard.\n\nContact: eric.pinto@nhs.net'
+ COMMENT='Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. \nOnly selecting necessary columns for the RCRD Dashboard.\n\nDate Created: 01/12/2025\nContact: eric.pinto@nhs.net'
  as
 
 SELECT 
@@ -94,7 +94,7 @@ IS_STAGEABLE_CANCER,
 GENDER_NAME,
 AGE_AT_DIAGNOSIS_GROUP,
 ETHNICITY_CATEGORY,
-RESIDENCE_LSOA_IMD_QUINTILE,
+GP_IMD_QUINTILE,
 ROUTE_TO_DIAGNOSIS,
 TRUST_NAME,
 CANCER_ALLIANCE_NAME,
@@ -106,8 +106,8 @@ REG_PCN_NAME,
 REG_BOROUGH_NCL_NAME,
 RESIDENCE_LSOA_CODE,
 RESIDENCE_LSOA_NAME,
-RESIDENCE_BOROUGH,
-RESIDENCE_NEIGHBOURHOOD,
+CASE WHEN RESIDENCE_BOROUGH IN ('Barnet','Camden','Islington','Enfield','Haringey') THEN RESIDENCE_BOROUGH ELSE 'Non-NCL Borough' END AS RESIDENCE_BOROUGH,
+CASE WHEN RESIDENCE_NEIGHBOURHOOD IS NULL THEN 'Non-NCL Neighbourhood' ELSE RESIDENCE_NEIGHBOURHOOD END AS RESIDENCE_BOROUGH,
 SNAPSHOT
 
 FROM MODELLING.CANCER__RCRD.RCRD rcrd
