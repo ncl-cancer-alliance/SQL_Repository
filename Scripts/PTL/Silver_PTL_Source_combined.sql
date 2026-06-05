@@ -52,8 +52,8 @@ create or replace view DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED(
         NULL AS "Day 0-33",
         NULL AS "Day 34-62",
         "CreateTS"
-    FROM DATA_LAKE__NCL.CANCER__PTL.PTL_SHAREPOINT_STAGE
-    WHERE "DateKey" > (
-        SELECT MAX("DateKey") 
+    FROM DATA_LAKE__NCL.ANALYST_MANAGED.CANCER__PTL_SHAREPOINT_STAGE
+    WHERE "DateKey" NOT IN (
+        SELECT DISTINCT "DateKey" 
         FROM DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv"
     );

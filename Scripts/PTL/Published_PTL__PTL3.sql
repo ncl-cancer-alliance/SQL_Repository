@@ -1,57 +1,50 @@
--- Transition the existing PTL scripts from MSSQL to Snowflake, PTL_3
--- The script is fairly raw and unaltered from the previous MSSQL script
--- Contact: ben.goretzki@nhs.net
-CREATE OR REPLACE DYNAMIC TABLE MODELLING.CANCER__PTL.PTL3(
-    "DateKey" DATE,
-    "Week Ending" VARCHAR,
-    "Org Code" VARCHAR,
-    "Org Name" VARCHAR,
-    "Section" VARCHAR,
-    "RowType" VARCHAR,
-    "TumourType" VARCHAR,
-    "Day 0-28" NUMBER,
-    "Day 29-62" NUMBER,
-    "Day 63-104" NUMBER,
-    "Day >104" NUMBER,
-    "Day >62" NUMBER,
-    "Total PTL" NUMBER,
-    "Number passing day 28 in last 7 days" NUMBER,
-    "Number passing day 62 in last 7 days" NUMBER,
-    "Number passing day 104 in last 7 days" NUMBER,
-    "Number of patients treated by day 62" NUMBER,
-    "Number of patients treated day 63-104" NUMBER,
-    "Number of patients treated > 104" NUMBER,
-    "Referrals and Upgrades Made" NUMBER,
-    "Referrals Seen" NUMBER,
-    "Day 0-33" NUMBER,
-    "Day 34-62" NUMBER,
-    "Region" VARCHAR,
-    "Cancer_Alliance" VARCHAR,
-    "Shortname" VARCHAR,
-    "Row Type" VARCHAR,
-    "Inc" VARCHAR,
-    "MonthKey" DATE,
-    "Last Week" VARCHAR
-)
-COMMENT="PTL3 table for PTL output"
-TARGET_LAG = "2 hours"
-REFRESH_MODE = FULL
-INITIALIZE = ON_CREATE
-WAREHOUSE = NCL_ANALYTICS_XS
-AS
+create or replace dynamic table DEV__PUBLISHED_REPORTING__SECONDARY_USE.CANCER__PTL.PTL3(
+	"DateKey",
+	"Week Ending",
+	"Org Code",
+	"Org Name",
+	"Section",
+	"RowType",
+	"TumourType",
+	"Day 0-28",
+	"Day 29-62",
+	"Day 63-104",
+	"Day >104",
+	"Day >62",
+	"Total PTL",
+	"Number passing day 28 in last 7 days",
+	"Number passing day 62 in last 7 days",
+	"Number passing day 104 in last 7 days",
+	"Number of patients treated by day 62",
+	"Number of patients treated day 63-104",
+	"Number of patients treated > 104",
+	"Referrals and Upgrades Made",
+	"Referrals Seen",
+	"Day 0-33",
+	"Day 34-62",
+	"Region",
+	"Cancer_Alliance",
+	"Shortname",
+	"Row Type",
+	"Inc",
+	"MonthKey",
+	"Last Week"
+) target_lag = '2 hours' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
+ COMMENT='PTL3 table for PTL output'
+ as
 
 WITH ExpectedWeeks AS (
     -- Generate all expected Sundays within the relevant date range
     SELECT DISTINCT 
         "DateKey"
-    FROM DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv"
+    FROM DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED
     WHERE "DateKey" > TO_DECIMAL(TO_VARCHAR(DATEADD(DAY, -375, GETDATE()), 'YYYYMMDD'))
 ),
 
 ActualSubmissions AS (
     SELECT DISTINCT 
         "DateKey", "Org Code"
-    FROM DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv"
+    FROM DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED
     WHERE "Org Code" NOT IN ('RVY','RA4', 'RBZ', 'RW6', 'RAP') and "DateKey" > TO_DECIMAL(TO_VARCHAR(DATEADD(DAY, -375, GETDATE()), 'YYYYMMDD'))
 ),
 
@@ -74,7 +67,7 @@ MostRecentValidWeek AS (
         m."MissingDateKey",
         MAX(p."DateKey") AS "PreviousDateKey"
     FROM MissingWeeks m
-    JOIN DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv" p
+    JOIN DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED p
         ON p."Org Code" = m."Org Code"
        AND p."DateKey" < m."MissingDateKey"
     GROUP BY m."Org Code", m."MissingDateKey"
@@ -115,13 +108,13 @@ FilledData AS (
         COALESCE(p."Referrals Seen", a."Referrals Seen") AS "Referrals Seen",
         COALESCE(p."Day 0-33", a."Day 0-33") AS "Day 0-33",
         COALESCE(p."Day 34-62", a."Day 34-62") AS "Day 34-62"
-    FROM DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv" a
+    FROM DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED a
     FULL OUTER JOIN (
         SELECT 
             r."MissingDateKey",
             p.*
         FROM MostRecentValidWeek r
-        JOIN DATA_LAKE.PMCT."Cwt63DayPlusWeeklySourceAppendReviseProv" p
+        JOIN DEV__MODELLING.CANCER__CCO.PTL_SOURCE_COMBINED p
             ON p."Org Code" = r."Org Code"
            AND p."DateKey" = r."PreviousDateKey"
     ) p ON a."DateKey" = p."MissingDateKey" AND a."Org Code" = p."Org Code"
