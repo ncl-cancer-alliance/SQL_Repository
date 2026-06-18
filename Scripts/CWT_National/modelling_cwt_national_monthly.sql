@@ -4,7 +4,7 @@
 --CTE for Source data. 
 --Source data is pulled by unioning the Comm (GP Registered) and Prov (Provider) tables
 
-create or replace dynamic table DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY(
+create or replace dynamic table MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY(
 	ROW_POPULATION_TYPE,
 	DATE_PERIOD,
 	FIN_YEAR,
@@ -61,31 +61,65 @@ create or replace dynamic table DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL
 --CTE for Source data. 
 --Source data is pulled by unioning the Comm (GP Registered) and Prov (Provider) tables
 WITH pmct AS (
-    --GP Registered data
+--GP Registered data
     SELECT
         'GP Registered' AS ROW_POPULATION_TYPE,
-        CCG_CODE AS ORGANISATION_CODE,
-        DEV__MODELLING.CANCER__CWT_NATIONAL.CLEAN_TYPE_OF_CANCER(TYPE_OF_CANCER) AS TYPE_OF_CANCER_CLEAN,
-        * EXCLUDE(CCG_CODE, CLINICAL_COMMISSIONING_GROUP)
-    FROM DATA_LAKE.PMCT."CwtMonthlySourceAppendReviseComm"
+        ORGANISATION_CODE,
+        MODELLING.CANCER__CWT_NATIONAL.CLEAN_TYPE_OF_CANCER(TYPE_OF_CANCER) AS TYPE_OF_CANCER_CLEAN,
+        REPORT_DATE AS "ReportDate",
+        CARE_SETTING,
+        STANDARD,
+        TYPE_OF_CANCER,
+        CANCER_TYPE,
+        TOTAL,
+        WITHIN_14_DAYS,
+        AFTER_14_DAYS,
+        PERCENTAGE_SEEN_WITHIN_14_DAYS,
+        WITHIN_31_DAYS,
+        AFTER_31_DAYS,
+        PERCENTAGE_TREATED_WITHIN_31_DAYS,
+        AFTER_62_DAYS,
+        WITHIN_62_DAYS,
+        PERCENTAGE_TREATED_WITHIN_62_DAYS,
+        TARGET,
+        ORGANISATION_TYPE,
+        CREATE_TS AS "CreateTS",
+        WITHIN_28_DAYS,
+        AFTER_28_DAYS,
+        PERCENTAGE_TOLD_WITHIN_28_DAYS,
+        IN_15_TO_16_DAYS,
+        IN_17_TO_21_DAYS,
+        IN_22_TO_28_DAYS,
+        WITHIN_32_TO_38_DAYS,
+        WITHIN_39_TO_48_DAYS,
+        WITHIN_49_TO_62_DAYS,
+        WITHIN_63_TO_76_DAYS,
+        WITHIN_77_TO_90_DAYS,
+        WITHIN_91_TO_104_DAYS,
+        AFTER_104_DAYS,
+        IN_15_TO_28_DAYS,
+        IN_29_TO_42_DAYS,
+        IN_43_TO_62_DAYS
+    FROM MODELLING.CANCER__CWT_NATIONAL.CWT_COMM_COMBINED
     
     UNION ALL
     
-    --Provider data
+--Provider data
     SELECT
         'Provider' AS ROW_POPULATION_TYPE,
         PROVIDER_CODE AS ORGANISATION_CODE,
-        DEV__MODELLING.CANCER__CWT_NATIONAL.CLEAN_TYPE_OF_CANCER(TYPE_OF_CANCER) AS TYPE_OF_CANCER_CLEAN,
-        "ReportDate", CARE_SETTING, STANDARD, TYPE_OF_CANCER, CANCER_TYPE, TOTAL,
+        MODELLING.CANCER__CWT_NATIONAL.CLEAN_TYPE_OF_CANCER(TYPE_OF_CANCER) AS TYPE_OF_CANCER_CLEAN,
+        REPORT_DATE AS "ReportDate",
+        CARE_SETTING, STANDARD, TYPE_OF_CANCER, CANCER_TYPE, TOTAL,
         WITHIN_14_DAYS, AFTER_14_DAYS, PERCENTAGE_SEEN_WITHIN_14_DAYS,
         WITHIN_31_DAYS, AFTER_31_DAYS, PERCENTAGE_TREATED_WITHIN_31_DAYS,
         AFTER_62_DAYS, WITHIN_62_DAYS, PERCENTAGE_TREATED_WITHIN_62_DAYS,
-        TARGET, ORGANISATION_TYPE, "CreateTS", WITHIN_28_DAYS, AFTER_28_DAYS,
+        TARGET, ORGANISATION_TYPE, CREATE_TS AS "CreateTS", WITHIN_28_DAYS, AFTER_28_DAYS,
         PERCENTAGE_TOLD_WITHIN_28_DAYS, IN_15_TO_16_DAYS, IN_17_TO_21_DAYS, IN_22_TO_28_DAYS,
         WITHIN_32_TO_38_DAYS, WITHIN_39_TO_48_DAYS, WITHIN_49_TO_62_DAYS, WITHIN_63_TO_76_DAYS,
         WITHIN_77_TO_90_DAYS, WITHIN_91_TO_104_DAYS, AFTER_104_DAYS,
         IN_15_TO_28_DAYS, IN_29_TO_42_DAYS, IN_43_TO_62_DAYS
-    FROM DATA_LAKE.PMCT."CwtMonthlySourceAppendReviseProv"
+    FROM MODELLING.CANCER__CWT_NATIONAL.CWT_PROV_COMBINED
 ),
 
 base_query AS (
@@ -182,54 +216,101 @@ base_query AS (
     
         ----Derive cancer pathway from the original CANCER_TYPE field. 
         ----The logic and grouping for this can vary on a case by case basis for different STANDARD types.
-        CASE 
+            CASE 
             --2WW
-            WHEN CANCER_TYPE = '2-WEEK WAIT - ALL SUSPECTED CANCER' THEN 'Combined'
+            WHEN CANCER_TYPE = '2-WEEK WAIT - ALL SUSPECTED CANCER'                            THEN 'Combined'
             WHEN CANCER_TYPE = '2-WEEK WAIT - BREAST SYMPTOMS (CANCER NOT INITALLY SUSPECTED)' THEN 'Breast Symptomatic'
-            WHEN CANCER_TYPE = '2-WEEK WAIT - SUSPECTED BY CANCER TYPE' THEN 'USC'
+            WHEN CANCER_TYPE = '2-WEEK WAIT - SUSPECTED BY CANCER TYPE'                        THEN 'USC'
             --FDS
-            WHEN pmct.STANDARD = '28 DAY' THEN 'FDS'
+            WHEN pmct.STANDARD = '28 DAY'                                                      THEN 'FDS'
             --31 Day
-            WHEN CANCER_TYPE LIKE '31-DAY - FIRST%' THEN 'First'
-            WHEN CANCER_TYPE LIKE '31-DAY - 2nd%' THEN 'Subsequent'
-            WHEN CANCER_TYPE LIKE '31-DAY COMBINED%' THEN 'Combined'
-            WHEN CANCER_TYPE LIKE '31-DAY WAIT - RARE%' THEN 'Rare Cancer'
+            WHEN CANCER_TYPE LIKE '31-DAY - FIRST%'                                            THEN 'First'
+            WHEN CANCER_TYPE LIKE '31-DAY - 2nd%'                                              THEN 'Subsequent'
+            WHEN CANCER_TYPE LIKE '31-DAY COMBINED%'                                           THEN 'Combined'
+            WHEN CANCER_TYPE LIKE '31-DAY WAIT - RARE%'                                        THEN 'Rare Cancer'
             --62 Day
-            WHEN CANCER_TYPE LIKE '62-DAY - BREAST%' THEN 'Breast Symptomatic'
-            WHEN CANCER_TYPE LIKE '62-DAY BREAST%' THEN 'Breast Symptomatic'
-            WHEN CANCER_TYPE LIKE '62-DAY - CONSULTANT%' THEN 'Consultant Upgrade'
-            WHEN CANCER_TYPE LIKE '62-DAY - SCREENING%' THEN 'Screening'
-            WHEN CANCER_TYPE LIKE '62-DAY URGENT%' THEN 'USC'
-            WHEN CANCER_TYPE LIKE '62-DAY COMBINED%' THEN 'Combined'
+            WHEN CANCER_TYPE LIKE '62-DAY - BREAST%'                                           THEN 'Breast Symptomatic'
+            WHEN CANCER_TYPE LIKE '62-DAY BREAST%'                                             THEN 'Breast Symptomatic'
+            WHEN CANCER_TYPE LIKE '62-DAY - CONSULTANT%'                                       THEN 'Consultant Upgrade'
+            WHEN CANCER_TYPE LIKE '62-DAY - SCREENING%'                                        THEN 'Screening'
+            WHEN CANCER_TYPE LIKE '62-DAY URGENT%'                                             THEN 'USC'
+            WHEN CANCER_TYPE LIKE '62-DAY COMBINED%'                                           THEN 'Combined'
+            --New source 31 Day (derived from CARE_SETTING)
+            WHEN pmct.STANDARD = '31-DAY WAIT' AND CARE_SETTING = 'First Treatment'            THEN 'First'
+            WHEN pmct.STANDARD = '31-DAY WAIT' AND CARE_SETTING = 'Subsequent'                 THEN 'Subsequent'
+            WHEN pmct.STANDARD = '31-DAY WAIT' AND CARE_SETTING = 'ALL STAGES'                 THEN 'Combined'
+            --New source 62 Day (derived from CARE_SETTING)
+            WHEN pmct.STANDARD = '62 DAY' AND CARE_SETTING = 'ALL ROUTES'                      THEN 'Combined'
+            WHEN pmct.STANDARD = '62 DAY' AND CARE_SETTING = 'Consultant Upgrade'              THEN 'Consultant Upgrade'
+            WHEN pmct.STANDARD = '62 DAY' AND CARE_SETTING = 'Screening'                       THEN 'Screening'
+            WHEN pmct.STANDARD = '62 DAY' AND CARE_SETTING = 'Breast Symptomatic'              THEN 'Breast Symptomatic'
+            WHEN pmct.STANDARD = '62 DAY' AND CARE_SETTING = 'Urgent Suspected Cancer'         THEN 'USC'
             ELSE NULL
-        END AS CANCER_PATHWAY,
-    
+        END                                                                                     AS CANCER_PATHWAY,
         ----Group rows into groups
         CASE
             --Give grand totals their own group (avoids aggregating with other rows and double counting)
-            WHEN TYPE_OF_CANCER_CLEAN = 'All Cancers' THEN 'All Cancers'
+            WHEN TYPE_OF_CANCER_CLEAN = 'All Cancers'                          THEN 'All Cancers'
             --Cancer type group for rows split by a tumour category
-            WHEN CANCER_TYPE LIKE '%BY CANCER TYPE' THEN 'Cancer Type'
-            WHEN CANCER_TYPE = '28 DAY FAST DIAGNOSIS (BY ROUTE)' THEN 'Cancer Type'
-            --Treatment group, use LIKE %(OTHER) for the last catgeory to future proof against other groups having an "other" option
-            WHEN TYPE_OF_CANCER_CLEAN IN ('Drugs', 'Surgery', 'Radiotherapy') OR (CANCER_TYPE LIKE '%(OTHER)') THEN 'Treatment'
-            --Standalone pathways as their own category, put here to only label 2ww Breast Symptomatic as a group. 
-            --For other standards, Breast Symptomatic is included in the Cancer Type group
-            WHEN CANCER_PATHWAY IN ('Breast Symptomatic', 'Rare Cancer') THEN CANCER_PATHWAY
+            WHEN CANCER_TYPE LIKE '%BY CANCER TYPE'                             THEN 'Cancer Type'
+            WHEN CANCER_TYPE = '28 DAY FAST DIAGNOSIS (BY ROUTE)'              THEN 'Cancer Type'
+            WHEN CANCER_TYPE = '28 DAY FAST DIAGNOSIS (ALL ROUTES)'            THEN 'All Cancers'
+            --Treatment group, use LIKE %(OTHER) for the last category to future proof against other groups having an "other" option
+            WHEN TYPE_OF_CANCER_CLEAN IN ('Drugs', 'Surgery', 'Radiotherapy')
+                OR (CANCER_TYPE LIKE '%(OTHER)')                                THEN 'Treatment'
+            --Standalone pathways as their own category
+            --WHEN CANCER_PATHWAY IN ('Breast Symptomatic', 'Rare Cancer')        THEN CANCER_PATHWAY
+            --New source treatment types as plain names
+            WHEN CANCER_TYPE IN ('Drugs', 'Surgery', 'Radiotherapy', 'Other')     THEN 'Treatment'
+            --Catch subcategory rows (e.g. Urological - Prostate, Haematological - Lymphoma)
+            WHEN TYPE_OF_CANCER_CLEAN LIKE '% - %'
+                AND TYPE_OF_CANCER_CLEAN NOT IN (
+                    'Cancer - Non-Specific Symptoms',
+                    'Exhibited (Non-Cancer) Breast Symptoms - Cancer Not Initially Suspected'
+                )                                                               THEN 'Cancer Type'
+ 
+            --Explicit cancer type list covering both plain names and subcategory parents
+            WHEN CANCER_TYPE IN (
+                'Cancer - Non-Specific Symptoms',
+                'Exhibited (Non-Cancer) Breast Symptoms - Cancer Not Initially Suspected',
+                'Urological',
+                'Haematological',
+                'Upper Gastrointestinal',
+                'Lower Gastrointestinal',
+                'Head & Neck',
+                'Gynaecological',
+                'Lung',
+                'Breast',
+                'Skin',
+                'Other',
+                'Sarcoma',
+                'Children\'s',
+                'Brain/Central Nervous System Tumours',
+                'Haematological Malignancies (Excluding Acute Leukaemia)',
+                'Acute Leukaemia',
+                'Testicular'
+            )                                                                   THEN 'Cancer Type'
+            --New source FDS pathway catch
+            WHEN CANCER_PATHWAY = 'FDS'                                         THEN 'Cancer Type'
+            --Generic catch-all for plain tumour names
+            WHEN CANCER_TYPE NOT LIKE '%-%'
+                AND CANCER_TYPE NOT LIKE '%BY%'
+                AND CANCER_TYPE IS NOT NULL
+                AND CANCER_TYPE NOT IN ('Missing or Invalid')                   THEN 'Cancer Type'
             ELSE NULL
-        END AS CANCER_TYPE_GROUP,
+        END                                                                     AS CANCER_TYPE_GROUP,
         CASE CANCER_PATHWAY
-            WHEN 'FDS'
-            THEN 
+            WHEN 'FDS' THEN
                 CASE CARE_SETTING
-                    WHEN 'URGENT SUSPECTED CANCER' THEN 'USC'
-                    WHEN 'NATIONAL SCREENING PROGRAMME' THEN 'Screening'
-                    WHEN 'BREAST SYMPTOMATIC, CANCER NOT SUSPECTED' THEN 'Breast Symptomatic'
-                    WHEN 'ALL CARE' THEN 'All Cancers'
-                    ELSE 'Unknown'
+                    WHEN 'URGENT SUSPECTED CANCER'                      THEN 'USC'
+                    WHEN 'NATIONAL SCREENING PROGRAMME'                 THEN 'Screening'
+                    WHEN 'BREAST SYMPTOMATIC, CANCER NOT SUSPECTED'     THEN 'Breast Symptomatic'
+                    WHEN 'ALL CARE'                                     THEN 'All Cancers'
+                    WHEN 'ALL ROUTES'                                   THEN 'All Cancers'
+                    ELSE NULL
                 END
             ELSE NULL
-        END AS FDS_PATHWAY,
+        END                                                                     AS FDS_PATHWAY, 
         --Standard Metrics (Base)
         TOTAL AS NO_PATIENTS,
         ----Combine metrics across standards so they can be viewed under the same columns
@@ -310,6 +391,7 @@ base_query AS (
         
         WHERE "OrganisationPrimaryRole_Root" = 'RO261'
         AND "OrganisationPrimaryRole_Child" = 'RO98'
+        qualify row_number() over (partition by CCG_CODE order by "RelationshipEndDate" desc) = 1
     ) org_ccg
     ON ORGANISATION_CODE = org_ccg.CCG_CODE
 
@@ -318,34 +400,36 @@ base_query AS (
         SELECT 
             orgd."OrganisationCode_Child" AS CHILD_CODE,
             LEFT(org."Organisation_Name", LENGTH(org."Organisation_Name") - 20) AS REGION_NAME,
-            org."Organisation_Code" AS REGION_CODE
+            org."Organisation_Code" AS REGION_CODE,
+            *
         FROM "Dictionary"."dbo"."OrganisationDescendent" orgd
         
         LEFT JOIN "Dictionary"."dbo"."Organisation" org
         ON orgd."OrganisationCode_Root" = org."Organisation_Code"
         
         WHERE "OrganisationPrimaryRole_Root" = 'RO209'
+        qualify row_number() over (partition by CHILD_CODE order by "RelationshipEndDate" desc) = 1
     ) org_reg
     ON ORGANISATION_ICB_CODE = org_reg.CHILD_CODE
     
     --Join for Organisation to Cancer Alliance mapping
-    LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
+    LEFT JOIN MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
     ON ORGANISATION_CODE = org_ca.CODE
     
     --Join for Provider to Radiotherapy Network
     ----This mapping is exclusive to (some) provider rows, the RADIOTHERAPY_NETWORK will be NULL for other cases
-    LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
+    LEFT JOIN MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
     ON ORGANISATION_CODE = rt.PROVIDER_CODE
     AND ROW_POPULATION_TYPE = 'Provider'
 
     --Join to get cleaned targets for standards
-    LEFT JOIN DEV__MODELLING.CANCER__REF.CWT_STANDARD_TARGETS ref_tar
+    LEFT JOIN MODELLING.CANCER__REF.CWT_STANDARD_TARGETS ref_tar
     ON LEFT(ref_tar.FIN_YEAR,4) = LEFT(FIN_YEAR_BASE,4)
     AND RIGHT(ref_tar.FIN_YEAR,2) = RIGHT(FIN_YEAR_BASE,2)
     AND ref_tar.STANDARD = STANDARD_BASE 
     
     --Filter to remove pre-Oct-23 split in admitted and non-admitted patients
-    WHERE CARE_SETTING NOT IN ('ADMITTED', 'NON-ADMITTED')
+    WHERE CARE_SETTING NOT IN ('ADMITTED', 'NON-ADMITTED') OR CARE_SETTING IS NULL
 )
 
 SELECT 
