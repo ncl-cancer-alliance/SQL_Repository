@@ -6,7 +6,6 @@ Description:
 Dynamic table to normalise the latest snapshot of RCRD data and brings in additional demographic and geographic data.
 
 Notes:
-- Runtime around 3 secs
 - Includes records apportioned by DSCRO as NCL, so trust and alliance data should mirror what's in CancerStats2
 
 Author: Graham Roberts
@@ -58,12 +57,7 @@ create or replace dynamic table MODELLING.CANCER__RCRD.RCRD(
 	REG_PCN_CODE,
 	REG_PCN_NAME,
 	REG_BOROUGH_NCL_NAME,
-	RESIDENCE_LSOA_CODE,
-	RESIDENCE_LSOA_NAME,
-	RESIDENCE_WARD_CODE,
-	RESIDENCE_WARD_NAME,
-	RESIDENCE_BOROUGH,
-	RESIDENCE_NEIGHBOURHOOD,
+	REG_NEIGHBOURHOOD_NCL,
 	DMICBOFREGISTRATION,
 	DMSUBICBOFREGISTRATION,
 	DMICBCOMMISSIONER,
@@ -179,21 +173,15 @@ SELECT
     a.ICB_CODE,
     a.ICB_NAME,
     a.SOURCE AS DIAGNOSIS_SOURCE,
-	-- Registered GP (note: may not align with alliance responsible at time of diagnosis for some records)
-    dpd.PRACTICE_CODE AS GP_PRACTICE_CODE,
-    dpd.PRACTICE_NAME AS GP_PRACTICE_NAME,
-    dpd.PCN_CODE AS REG_PCN_CODE,
-    dpd.PCN_NAME AS REG_PCN_NAME,
-	dpd.REGISTERED_BOROUGH AS REG_BOROUGH_NCL_NAME,
 
-    -- LSOA, Ward, and Neighbourhood based on patient postcode of residence, not GP practice.
-    dpd.RESIDENCE_LSOA_2021_CODE,
-    dpd.RESIDENCE_LSOA_2021_NAME,
-    dpd.RESIDENCE_WARD_2025_CODE AS RES_WARD_CODE,
-    dpd.RESIDENCE_WARD_2025_NAME AS RES_WARD_NAME,
-
-    dpd.RESIDENCE_BOROUGH,
-    dpd.RESIDENCE_NEIGHBOURHOOD_NAME,
+    -- Registered GP at time of diagnosis
+    a."dmPracticeCode" AS GP_PRACTICE_CODE,
+    pco.ORGANISATION_NAME AS GP_PRACTICE_NAME,
+    pco.PCN_CODE AS REG_PCN_CODE,
+    pco.PCN_NAME AS REG_PCN_NAME,
+    pco.BOROUGH_NCL AS REG_BOROUGH_NCL_NAME,
+    -- Neighbourhood based on GP practice.
+    pco.NEIGHBOURHOOD_NCL AS REG_NEIGHBOURHOOD_NCL,
 	
     a."dmIcbOfRegistration" AS DMICBOFREGISTRATION,
     a."dmSubIcbOfRegistration" AS DMSUBICBOFREGISTRATION,
@@ -207,6 +195,8 @@ SELECT
 FROM DATA_LAKE.RCRD.NDR001_RAPID_REGISTRATION a
 
 LEFT JOIN REPORTING.COMMISSIONING_REPORTING.DIM_PERSON_DEMOGRAPHICS_BASIC dpd ON a."NHS_NUMBER Pseudo" = dpd.SK_PATIENT_ID
+
+LEFT JOIN MODELLING.CANCER__REF.LOOKUP_PRIMARY_CARE_ORGS pco ON a."dmPracticeCode" = pco.organisation_code
 
 LEFT JOIN MODELLING.LOOKUP_NCL.IMD_PRACTICE imd
 ON imd.practice_code = a."dmPracticeCode"
