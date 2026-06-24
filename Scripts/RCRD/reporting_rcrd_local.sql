@@ -1,13 +1,9 @@
 /*
-Script: DEV__REPORTING.PUBLIC.CANCER__RCRD__LOCAL
+Script: REPORTING.PUBLIC.CANCER__RCRD__LOCAL
 Version: 1.2
 
 Description:
 Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. Also only selecting necessary columns for the RCRD Dashboard. Only including London Data.
-
-Notes:
-- Runtime around 3 secs
-
 
 Author: Eric Pinto
 
@@ -48,10 +44,7 @@ create or replace dynamic table REPORTING.CANCER__RCRD.CANCER__RCRD__LOCAL(
 	GP_PRACTICE_NAME,
 	REG_PCN_NAME,
 	REG_BOROUGH_NCL_NAME,
-	RESIDENCE_LSOA_CODE,
-	RESIDENCE_LSOA_NAME,
-	RESIDENCE_BOROUGH,
-	RESIDENCE_NEIGHBOURHOOD,
+	REG_NEIGHBOURHOOD_NCL,
 	SNAPSHOT
 ) target_lag = '1 day' refresh_mode = FULL initialize = ON_CREATE warehouse = NCL_ANALYTICS_XS
  COMMENT='Dynamic table to create new Tumour Grouping that matches the ones in the National RCRD Data extracts. \nOnly selecting necessary columns for the RCRD Dashboard.\n\nDate Created: 01/12/2025\nContact: eric.pinto@nhs.net'
@@ -103,14 +96,11 @@ ICB_NAME,
 GP_PRACTICE_CODE,
 GP_PRACTICE_NAME,
 REG_PCN_NAME,
-REG_BOROUGH_NCL_NAME,
-RESIDENCE_LSOA_CODE,
-RESIDENCE_LSOA_NAME,
-CASE WHEN RESIDENCE_BOROUGH IN ('Barnet','Camden','Islington','Enfield','Haringey') THEN RESIDENCE_BOROUGH ELSE 'Non-NCL Borough' END AS RESIDENCE_BOROUGH,
-CASE WHEN RESIDENCE_NEIGHBOURHOOD IS NULL THEN 'Non-NCL Neighbourhood' ELSE RESIDENCE_NEIGHBOURHOOD END AS RESIDENCE_BOROUGH,
+CASE WHEN REG_BOROUGH_NCL_NAME IN ('Barnet','Camden','Islington','Enfield','Haringey') THEN REG_BOROUGH_NCL_NAME ELSE 'Non-NCL Borough' END AS REG_BOROUGH_NCL_NAME,
+CASE WHEN REG_NEIGHBOURHOOD_NCL IS NULL THEN 'Non-NCL Neighbourhood' ELSE REG_NEIGHBOURHOOD_NCL END AS REG_NEIGHBOURHOOD_NCL,
 SNAPSHOT
 
-FROM MODELLING.CANCER__RCRD.RCRD rcrd
+FROM DEV__MODELLING.CANCER__RCRD.RCRD rcrd
 
 ---- Join to get ICD10 Descriptions ----
 JOIN (
