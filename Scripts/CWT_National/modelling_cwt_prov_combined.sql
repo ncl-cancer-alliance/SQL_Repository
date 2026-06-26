@@ -1,4 +1,4 @@
-create or replace view DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_PROV_COMBINED(
+CREATE OR REPLACE VIEW MODELLING.CANCER__CWT_NATIONAL.CWT_PROV_COMBINED(
 	REPORT_DATE,
 	PROVIDER_CODE,
 	PROVIDER_NAME,
@@ -35,7 +35,7 @@ create or replace view DEV__MODELLING.CANCER__CWT_NATIONAL.CWT_PROV_COMBINED(
 	TARGET,
 	ORGANISATION_TYPE,
 	CREATE_TS
-) as
+) AS
 
 -- PMCT source (all months)
 SELECT
@@ -79,12 +79,14 @@ FROM DATA_LAKE.PMCT."CwtMonthlySourceAppendReviseProv"
 
 UNION ALL
 
--- New combined source (only months not already in PMCT)
+-- New combined source (only months not already in PMCT). Cleaning the data to match PMCT source.
 SELECT
+    -- Date derived as 2 months back from file ingestion date
     CAST(DATEADD(MONTH, -2, DATE_TRUNC('MONTH', _INGESTED_AT)) AS DATE) AS REPORT_DATE,
     ORG_CODE                            AS PROVIDER_CODE,
     ORG_NAME                            AS PROVIDER_NAME,
     REFERRAL_ROUTE_OR_STAGE             AS CARE_SETTING,
+    -- Normalise standard values to match PMCT format
     CASE STANDARD_OR_ITEM
         WHEN 'FDS'                                THEN '28 DAY'
         WHEN '31D'                                THEN '31-DAY WAIT'
@@ -115,11 +117,13 @@ SELECT
         ELSE CANCER_TYPE
     END                                                                     AS CANCER_TYPE,
     TOTAL,
-    CASE STANDARD_OR_ITEM
+   -- 2WW: WITHIN column maps to WITHIN_14_DAYS, others use named column
+   CASE STANDARD_OR_ITEM
         WHEN 'Urgent Suspected Cancer referral'   THEN WITHIN
         WHEN 'Urgent Breast Symptomatic referral' THEN WITHIN
         ELSE WITHIN_14_DAYS
     END                                 AS WITHIN_14_DAYS,
+    -- 2WW: AFTER column maps to AFTER_14_DAYS
     CASE STANDARD_OR_ITEM
         WHEN 'Urgent Suspected Cancer referral'   THEN AFTER
         WHEN 'Urgent Breast Symptomatic referral' THEN AFTER
@@ -150,6 +154,7 @@ SELECT
     IN_32_TO_38_DAYS                    AS WITHIN_32_TO_38_DAYS,
     IN_39_TO_48_DAYS                    AS WITHIN_39_TO_48_DAYS,
     IN_49_TO_62_DAYS                    AS WITHIN_49_TO_62_DAYS,
+    -- FDS: AFTER_62_DAYS NULLed as it doesn't apply to FDS standard
     CASE STANDARD_OR_ITEM
         WHEN 'FDS' THEN NULL
         ELSE AFTER_62_DAYS
@@ -167,6 +172,7 @@ SELECT
     IN_29_TO_42_DAYS,
     IN_43_TO_62_DAYS,
     NULL                                AS PERCENTAGE_TOLD_WITHIN_28_DAYS,
+    -- TARGET hardcoded as source has no target column
     CASE STANDARD_OR_ITEM
         WHEN 'FDS' THEN 0.80
         WHEN '31D' THEN 0.96
@@ -176,23 +182,28 @@ SELECT
     _INGESTED_AT                        AS CREATE_TS
 FROM DATA_LAKE.PERFORMANCE."CwtMonthlySourceAppendCombined"
 WHERE BASIS = 'Provider'
+-- Only include months not already covered by PMCT
 AND CAST(DATEADD(MONTH, -2, DATE_TRUNC('MONTH', _INGESTED_AT)) AS DATE) NOT IN (
     SELECT DISTINCT CAST("ReportDate" AS DATE)
     FROM DATA_LAKE.PMCT."CwtMonthlySourceAppendReviseProv"
 )
+-- Drop ALL ROUTES rows for individual cancer types - these are summary rows that duplicate pathway-specific rows and cause double counting
 AND NOT (
     REFERRAL_ROUTE_OR_STAGE = 'ALL ROUTES'
     AND CANCER_TYPE <> 'ALL CANCERS'
 )
+-- Drop ALL STAGES rows for 31D - the source provides ALL STAGES as a summary row alongside First Treatment and Subsequent breakdowns, causing double counting. Only First Treatment and Subsequent kept.
 AND NOT (
     STANDARD_OR_ITEM = '31D'
     AND REFERRAL_ROUTE_OR_STAGE = 'ALL STAGES'
 )
+-- Drop ALL ROUTES treatment modality rows for 62D - these are summary rows that duplicate pathway-specific treatment rows
 AND NOT (
     STANDARD_OR_ITEM = '62D'
     AND REFERRAL_ROUTE_OR_STAGE = 'ALL ROUTES'
     AND TREATMENT_MODALITY <> 'ALL MODALITIES'
 )
+-- Drop ALL CANCERS / ALL MODALITIES summary rows for 31D First Treatment and Subsequent - these duplicate the sum of individual cancer type rows
 AND NOT (
     STANDARD_OR_ITEM = '31D'
     AND CANCER_TYPE = 'ALL CANCERS'
