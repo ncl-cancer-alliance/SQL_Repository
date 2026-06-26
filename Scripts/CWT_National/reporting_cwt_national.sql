@@ -63,6 +63,7 @@ SELECT
     STANDARD_PERFORMANCE,
     TARGET
 FROM MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY
+-- Limit to most recent 4 financial years
 WHERE FIN_YEAR >= (
     SELECT MIN(FIN_YEAR)
     FROM (
@@ -71,12 +72,15 @@ WHERE FIN_YEAR >= (
         ORDER BY FIN_YEAR DESC
         LIMIT 4
     ) t)
+-- Sub-ICB only has All Cancers and Treatment groups available
+-- Non-Sub-ICB: exclude All Cancers to avoid double counting
 AND ((ORGANISATION_TYPE = 'Sub-ICB' AND CANCER_TYPE_GROUP IN ('All Cancers','Treatment'))
    OR (ORGANISATION_TYPE <> 'Sub-ICB' AND CANCER_TYPE_GROUP <> 'All Cancers'))
+-- Exclude Combined (used for Subsequent derivation in second part). Rare Cancer not used in reporting
 AND CANCER_PATHWAY NOT IN ('Rare Cancer', 'Combined')  -- Combined excluded here
-AND ORGANISATION_NAME_SHORT NOT LIKE ('%Commissioning%')
-AND ORGANISATION_NAME_SHORT <> 'England'
-AND ORGANISATION_TYPE NOT IN ('CCG')
+AND ORGANISATION_NAME_SHORT NOT LIKE ('%Commissioning%') -- Exclude Commissioning Hub organisations
+AND ORGANISATION_NAME_SHORT <> 'England' -- Exclude England summary row
+AND ORGANISATION_TYPE NOT IN ('CCG') -- Exclude old CCG codes superseded by ICB
 
 UNION ALL
 
@@ -101,9 +105,10 @@ SELECT
     combined.STANDARD,
     combined.CANCER_TYPE,
     combined.CANCER_TYPE_SUBCATEGORY,
-    'Subsequent' AS CANCER_PATHWAY,
+    'Subsequent' AS CANCER_PATHWAY, -- Hardcode pathway as Subsequent since this is derived data
     combined.CANCER_TYPE_GROUP,
     combined.FDS_PATHWAY,
+    -- Derive Subsequent metrics as Combined minus First
     combined.NO_PATIENTS - first.NO_PATIENTS AS NO_PATIENTS,
     combined.NO_COMPLIANT - first.NO_COMPLIANT AS NO_COMPLIANT,
     combined.NO_BREACHES - first.NO_BREACHES AS NO_BREACHES,
@@ -113,6 +118,7 @@ SELECT
     ) AS STANDARD_PERFORMANCE,
     combined.TARGET
 FROM MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY combined
+-- Join Combined rows to their matching First rows
 JOIN MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY first
     ON combined.ORGANISATION_CODE        = first.ORGANISATION_CODE
     AND combined.DATE_PERIOD             = first.DATE_PERIOD
@@ -122,14 +128,17 @@ JOIN MODELLING.CANCER__CWT_NATIONAL.CWT_NATIONAL_MONTHLY first
     AND combined.CANCER_TYPE             = first.CANCER_TYPE
     AND combined.CANCER_TYPE_GROUP       = first.CANCER_TYPE_GROUP
     AND combined.ROW_POPULATION_TYPE     = first.ROW_POPULATION_TYPE
+    -- Handle NULL subcategory matching
     AND (combined.CANCER_TYPE_SUBCATEGORY = first.CANCER_TYPE_SUBCATEGORY
         OR (combined.CANCER_TYPE_SUBCATEGORY IS NULL AND first.CANCER_TYPE_SUBCATEGORY IS NULL))
+    -- Handle NULL FDS pathway matching
     AND (combined.FDS_PATHWAY = first.FDS_PATHWAY
         OR (combined.FDS_PATHWAY IS NULL AND first.FDS_PATHWAY IS NULL))
-WHERE combined.CANCER_PATHWAY = 'Combined'
-AND first.CANCER_PATHWAY = 'First'
+WHERE combined.CANCER_PATHWAY = 'Combined' -- Combined side of the join
+AND first.CANCER_PATHWAY = 'First' -- First side of the join
 AND combined.ORGANISATION_TYPE = 'Sub-ICB'
 AND combined.STANDARD = '31 Day'
+-- Same 4 year filter as part 1
 AND combined.FIN_YEAR >= (
     SELECT MIN(FIN_YEAR)
     FROM (
@@ -138,6 +147,7 @@ AND combined.FIN_YEAR >= (
         ORDER BY FIN_YEAR DESC
         LIMIT 4
     ) t)
+-- Same organisation exclusions as part 1
 AND combined.ORGANISATION_NAME_SHORT NOT LIKE ('%Commissioning%')
 AND combined.CANCER_TYPE_GROUP IN ('All Cancers', 'Treatment')
 AND combined.ORGANISATION_NAME_SHORT <> 'England';

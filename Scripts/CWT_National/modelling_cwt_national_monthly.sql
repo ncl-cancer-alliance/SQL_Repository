@@ -413,17 +413,17 @@ base_query AS (
     ON ORGANISATION_ICB_CODE = org_reg.CHILD_CODE
     
     --Join for Organisation to Cancer Alliance mapping
-    LEFT JOIN MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
+    LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_ORGANISATIONS org_ca
     ON ORGANISATION_CODE = org_ca.CODE
     
     --Join for Provider to Radiotherapy Network
     ----This mapping is exclusive to (some) provider rows, the RADIOTHERAPY_NETWORK will be NULL for other cases
-    LEFT JOIN MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
+    LEFT JOIN DEV__MODELLING.CANCER__REF.DIM_CANCER_RADIOTHERAPY_NETWORK rt
     ON ORGANISATION_CODE = rt.PROVIDER_CODE
     AND ROW_POPULATION_TYPE = 'Provider'
 
     --Join to get cleaned targets for standards
-    LEFT JOIN MODELLING.CANCER__REF.CWT_STANDARD_TARGETS ref_tar
+    LEFT JOIN DEV__MODELLING.CANCER__REF.CWT_STANDARD_TARGETS ref_tar
     ON LEFT(ref_tar.FIN_YEAR,4) = LEFT(FIN_YEAR_BASE,4)
     AND RIGHT(ref_tar.FIN_YEAR,2) = RIGHT(FIN_YEAR_BASE,2)
     AND ref_tar.STANDARD = STANDARD_BASE 
