@@ -83,8 +83,8 @@ UNION ALL
 SELECT
     -- Date derived as 2 months back from file ingestion date
     CAST(DATEADD(MONTH, -2, DATE_TRUNC('MONTH', _INGESTED_AT)) AS DATE) AS REPORT_DATE,
-    ORG_CODE                            AS PROVIDER_CODE,
-    ORG_NAME                            AS PROVIDER_NAME,
+    CASE WHEN ORG_CODE = 'Total' THEN 'ALL ENGLISH PROVIDERS' ELSE ORG_CODE END AS PROVIDER_CODE,
+    CASE WHEN ORG_NAME = 'Total' THEN 'ALL ENGLISH PROVIDERS' ELSE ORG_NAME END AS PROVIDER_NAME,
     REFERRAL_ROUTE_OR_STAGE             AS CARE_SETTING,
     -- Normalise standard values to match PMCT format
     CASE STANDARD_OR_ITEM
@@ -187,23 +187,21 @@ AND CAST(DATEADD(MONTH, -2, DATE_TRUNC('MONTH', _INGESTED_AT)) AS DATE) NOT IN (
     SELECT DISTINCT CAST("ReportDate" AS DATE)
     FROM DATA_LAKE.PMCT."CwtMonthlySourceAppendReviseProv"
 )
--- Drop ALL ROUTES rows for individual cancer types - these are summary rows that duplicate pathway-specific rows and cause double counting
+-- Drop ALL ROUTES for individual cancer types - duplicates pathway-specific rows
+-- Keep ALL ROUTES where CANCER_TYPE = ALL CANCERS (62D Combined rows)
 AND NOT (
     REFERRAL_ROUTE_OR_STAGE = 'ALL ROUTES'
     AND CANCER_TYPE <> 'ALL CANCERS'
 )
--- Drop ALL STAGES rows for 31D - the source provides ALL STAGES as a summary row alongside First Treatment and Subsequent breakdowns, causing double counting. Only First Treatment and Subsequent kept.
+-- Drop ALL STAGES for individual cancer types - duplicates First + Subsequent rows
+-- Keep ALL STAGES where CANCER_TYPE = ALL CANCERS (31D Combined rows)
 AND NOT (
     STANDARD_OR_ITEM = '31D'
     AND REFERRAL_ROUTE_OR_STAGE = 'ALL STAGES'
+    AND NOT (CANCER_TYPE = 'ALL CANCERS')
 )
--- Drop ALL ROUTES treatment modality rows for 62D - these are summary rows that duplicate pathway-specific treatment rows
-AND NOT (
-    STANDARD_OR_ITEM = '62D'
-    AND REFERRAL_ROUTE_OR_STAGE = 'ALL ROUTES'
-    AND TREATMENT_MODALITY <> 'ALL MODALITIES'
-)
--- Drop ALL CANCERS / ALL MODALITIES summary rows for 31D First Treatment and Subsequent - these duplicate the sum of individual cancer type rows
+-- Drop ALL CANCERS / ALL MODALITIES First Treatment and Subsequent rows
+-- These duplicate the sum of individual cancer type rows
 AND NOT (
     STANDARD_OR_ITEM = '31D'
     AND CANCER_TYPE = 'ALL CANCERS'
