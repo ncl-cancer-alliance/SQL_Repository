@@ -1,7 +1,7 @@
 -- Creates the national screening table using the raw NHS Futures data.
 -- Processes London and England (via aggregation) seperately and combines both into a single table.
 -- Contact: jake.kealey@nhs.net
-CREATE OR REPLACE DYNAMIC TABLE DEV__MODELLING.CANCER__SCREENING.SCREENING_NATIONAL (
+CREATE OR REPLACE DYNAMIC TABLE MODELLING.CANCER__SCREENING.SCREENING_NATIONAL (
     "REGION_NAME" VARCHAR,
     "PROGRAMME" VARCHAR,
     "DATE_FULL" DATE,
