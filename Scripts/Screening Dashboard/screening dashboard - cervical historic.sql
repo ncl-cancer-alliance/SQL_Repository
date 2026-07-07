@@ -253,12 +253,12 @@ SELECT DATE_MONTH_END
     ,NEIGHBOURHOOD_REGISTERED
     ,BOROUGH_REGISTERED
     ,CASE
-        WHEN ETHNICITY_SUBCATEGORY = 'Not Recorded' Then 'Unknown'
-        WHEN ETHNICITY_SUBCATEGORY = 'Unknown' Then 'Unknown'
-        WHEN ETHNICITY_SUBCATEGORY = 'Not stated' Then 'Unknown'
-        WHEN ETHNICITY_SUBCATEGORY = 'Not Stated' Then 'Unknown'
-        WHEN ETHNICITY_SUBCATEGORY = 'Recorded Not Known' Then 'Unknown'
-        WHEN ETHNICITY_SUBCATEGORY IS NULL Then 'Unknown'
+        WHEN ETHNICITY_SUBCATEGORY = 'Not Recorded' Then 'Not Known'
+        WHEN ETHNICITY_SUBCATEGORY = 'Unknown' Then 'Not Known'
+        WHEN ETHNICITY_SUBCATEGORY = 'Not stated' Then 'Not Stated'
+        WHEN ETHNICITY_SUBCATEGORY = 'Recorded Not Known' Then 'Not Known'
+        WHEN ETHNICITY_SUBCATEGORY = 'Refused' Then 'Not Stated'
+        WHEN ETHNICITY_SUBCATEGORY IS NULL Then 'Not Known'
         ELSE ETHNICITY_SUBCATEGORY
     END AS ETHNICITY_SUBCATEGORY
     ,COALESCE(IMD_DECILE_25,0) AS IMD_DECILE
