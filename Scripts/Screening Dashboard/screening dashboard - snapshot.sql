@@ -4,7 +4,15 @@
 -- 2) build bowel latest month_end snapshot
 -- 3) union two month_end snapshots together 
 ----------------------------------
-CREATE OR REPLACE TABLE DEV__REPORTING.CANCER__SCREENING.OLIDS_SCREENING_DASHBOARD_SNAPSHOT AS (
+CREATE OR REPLACE DYNAMIC TABLE REPORTING.CANCER__SCREENING.OLIDS_SCREENING_DASHBOARD_SNAPSHOT 
+
+target_lag = '1 day' 
+refresh_mode = FULL 
+initialize = ON_CREATE 
+warehouse = NCL_ANALYTICS_XS
+COMMENT='Dynamic table to pull snapshot table for Screening Dashboard.'
+
+AS (
 
 ------- get latest month_end date
 WITH month_end AS (
@@ -421,8 +429,6 @@ ON elst.PERSON_ID = hom.PERSON_ID
 LEFT JOIN DEV__REPORTING.OLIDS_PERSON_STATUS.DIM_PERSON_IS_CARER AS car
 ON elst.PERSON_ID = car.PERSON_ID
 
-WHERE dem.PRACTICE_CODE != 'Y03103' -- medicus select care is outside the OLIDs enterprise sharing agreement 
-
 -- only take the most recent demographic info as one month_end can be joined to > 1 record in demographics_historical table
 QUALIFY ROW_NUMBER() OVER (
     PARTITION BY elst.PERSON_ID, elst.DATE_MONTH_END 
@@ -466,6 +472,7 @@ QUALIFY ROW_NUMBER() OVER (
     ORDER BY TO_DATE(dem.REGISTRATION_START_DATE) DESC
     ) = 1
 )
+
 
 ------- get bowel historical screening data and add the screening interval and expiry date for each patient. this will then be joined to the eligible pop.
 ,bowel_historical_screening AS (
@@ -543,7 +550,6 @@ ON hist.PERSON_ID = age.PERSON_ID
 
 GROUP BY ALL -- this collapses any duplicates from bowel_historical_screening
 )
-
 
 ----------------------- join demographics to patient-level eligible population with screening status 
 ,bowel_final_historic_demographics AS (
@@ -723,13 +729,12 @@ ON elst.PERSON_ID = hom.PERSON_ID
 LEFT JOIN DEV__REPORTING.OLIDS_PERSON_STATUS.DIM_PERSON_IS_CARER AS car
 ON elst.PERSON_ID = car.PERSON_ID
 
-WHERE dem.PRACTICE_CODE != 'Y03103' -- medicus select care is outside the OLIDs enterprise sharing agreement 
-
 -- only take the most recent demographic info as month_end can have > 1 record of changes in demographics_historical table
 QUALIFY ROW_NUMBER() OVER (
     PARTITION BY elst.PERSON_ID, elst.DATE_MONTH_END 
     ORDER BY TO_DATE(dem.EFFECTIVE_START_DATE) DESC
     ) = 1
+
 )
 
 
@@ -739,9 +744,11 @@ QUALIFY ROW_NUMBER() OVER (
 
 SELECT *
 FROM cervical_final_historic_demographics
+WHERE PRACTICE_CODE != 'Y03103' -- medicus select care is outside the OLIDs enterprise sharing agreement 
 
 UNION ALL 
 
 SELECT *
 FROM bowel_final_historic_demographics
+WHERE PRACTICE_CODE != 'Y03103' -- medicus select care is outside the OLIDs enterprise sharing agreement 
 );
